@@ -44,7 +44,7 @@ export function KanbanColumn({
       <div
         ref={setNodeRef}
         className={cn(
-          "flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2 transition-all",
+          "scrollbar-discreet flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2 transition-all",
           isOver && cn("ring-2 ring-inset", theme.ring, "bg-background/50"),
         )}
       >

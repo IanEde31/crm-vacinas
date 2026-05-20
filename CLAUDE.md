@@ -6,7 +6,7 @@ Este arquivo orienta o Claude Code durante o desenvolvimento. Leia antes de qual
 
 CRM interno da **7Bee Vacinas** para gerenciar prospecção comercial de clínicas de vacinação. Operação inicial: 2 usuários. Pipeline esperado: ~600 leads/mês oriundos de scraping no Google Maps via APIFY, enriquecidos com dados de CNPJ e diagnóstico via cliente oculto.
 
-A documentação completa de produto e estratégia está em `INSTRUCTIONS.md`. O fluxo de importação de leads via APIFY está em `APIFY_IMPORT.md`. Sempre consultar esses arquivos antes de tomar decisões de produto.
+A documentação completa de produto e estratégia está em `INSTRUCTIONS.md`. O fluxo de importação de leads via APIFY está em `apify-import.md`. Sempre consultar esses arquivos antes de tomar decisões de produto.
 
 ## Stack — não desvie sem motivo
 
@@ -35,33 +35,36 @@ A documentação completa de produto e estratégia está em `INSTRUCTIONS.md`. O
   /(auth)/login
   /(dashboard)
     /page.tsx                 → dashboard inicial
-    /leads
-      /page.tsx               → kanban
-      /[id]/page.tsx          → detalhe do lead
-    /clinicas
-      /page.tsx               → listagem (visão de base, não pipeline)
+    /leads/page.tsx           → kanban (detalhe do lead via drawer)
+    /clinicas/page.tsx        → listagem (visão de base, não pipeline)
+    /contatos/page.tsx        → listagem de contatos
     /tarefas/page.tsx
-    /import/page.tsx          → upload manual de CSV APIFY
+    /radar/page.tsx           → busca de leads via APIFY (animação de varredura)
+    /radar/actions.ts         → Server Actions: iniciar/verificar busca
   /api
-    /webhooks/apify/route.ts  → ingestão automática
+    /webhooks/apify/route.ts  → ingestão automática (rede de segurança)
 /components
   /ui                         → shadcn/ui (não editar diretamente)
-  /kanban                     → Board, Column, Card, useDragDrop
+  /kanban                     → Board, Column, Card
   /leads                      → LeadDrawer, LeadTimeline, AtividadeForm
+  /radar                      → BuscaForm, MapaScanner, ResultadoBusca
   /shared                     → Navbar, Sidebar, EmptyState
 /lib
   /supabase
     /client.ts                → createBrowserClient
-    /server.ts                → createServerClient
-    /types.ts                 → tipos gerados
+    /server.ts                → createServerClient (com cookies)
+    /admin.ts                 → service role (jobs/webhook, ignora RLS)
+    /types.ts                 → tipos do schema
   /scoring.ts                 → cálculo de score do lead
+  /cidades-grandes.ts         → capitais/cidades grandes (insumo do score)
   /apify
+    /client.ts                → REST API da APIFY (start/poll/dataset)
     /parser.ts                → normaliza payload APIFY
-    /dedupe.ts                → lógica de deduplicação
+    /ingest.ts                → dedupe + persistência (clinicas + leads)
+  /buscas                     → termos, queries, processar, municípios (IBGE)
   /utils.ts
 /supabase
   /migrations                 → SQL versionado
-  /seed.sql
 ```
 
 ## Convenções

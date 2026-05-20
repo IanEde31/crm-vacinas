@@ -1,4 +1,4 @@
-# APIFY_IMPORT.md — Fluxo de Importação de Leads
+# apify-import.md — Fluxo de Importação de Leads
 
 Este documento define como o CRM ingere leads brutos vindos do scraping do Google Maps via APIFY. Cobre extração, normalização, deduplicação, enriquecimento e persistência.
 
@@ -26,7 +26,7 @@ APIFY (Google Maps scraper)
 
 Existem **três modos de ingestão**:
 
-1. **Busca disparada pelo app** (página `/import`) — modo principal. O usuário
+1. **Busca disparada pelo app** (página `/radar`) — modo principal. O usuário
    escolhe cidade, termo e quantidade; o app inicia um run assíncrono na APIFY,
    faz polling do status e ingere o dataset ao concluir. Estado do run rastreado
    na tabela `buscas`.
@@ -232,54 +232,40 @@ O `(xmax = 0)` retorna `true` se foi insert, `false` se foi update.
 
 Apenas marca como suspeita, não funde automaticamente. Decisão humana.
 
-## Fluxo de importação manual (`/import`)
+## Fluxo da busca pelo app (`/radar`)
 
-UI simples:
+Modo principal — substitui o upload manual de CSV. Implementado em
+`app/(dashboard)/radar/`, `lib/buscas/` e `lib/apify/`.
 
-1. Usuário escolhe arquivo (JSON ou CSV exportado do APIFY)
-2. Preview mostra primeiras 10 linhas parseadas + total
-3. Mostra contadores: "X novos, Y atualizações, Z descartados (inválidos/fechados)"
-4. Botão "Confirmar importação"
-5. Server Action processa em batch (transações de 100 em 100)
-6. Tela de resultado: total importado, IDs criados, erros (se houver)
+1. O usuário escolhe **estado** (UF), **cidade** (lista do IBGE filtrada pela
+   UF — evita descasamento cidade/estado), **tipo de clínica** (termos
+   pré-definidos ou "todos") e **quantidade** (até 200), na página `/radar`.
+2. `iniciarBusca` (Server Action) valida com Zod, dispara um run assíncrono na
+   APIFY, registra a busca em `buscas` (status `running`) e devolve o `buscaId`.
+3. O client faz polling de `verificarBusca` a cada ~4s, exibindo a animação de
+   varredura (radar sobre o contorno do estado) com a contagem parcial.
+4. Quando o run conclui, `processarBusca` (em `lib/buscas/processar.ts`,
+   compartilhada com o webhook e protegida por lock na coluna `buscas.status`)
+   baixa o dataset, chama a ingestão e grava os contadores.
+5. Tela de resultado: encontradas / novas / atualizadas / descartadas.
 
-**Importante**: processa em batch, não um a um. Para 600 registros, isso é diferença de segundos vs minutos.
-
-```typescript
-// Server Action
-'use server';
-
-export async function importApifyData(rows: ApifyPlace[]) {
-  const supabase = createServerClient();
-  const parsed = rows.map(parseApifyPlace).filter(Boolean);
-
-  const BATCH = 100;
-  const results = { inserted: 0, updated: 0, skipped: rows.length - parsed.length };
-
-  for (let i = 0; i < parsed.length; i += BATCH) {
-    const chunk = parsed.slice(i, i + BATCH);
-    const { data, error } = await supabase
-      .from('clinicas')
-      .upsert(chunk, { onConflict: 'google_place_id' })
-      .select('id, google_place_id');
-
-    if (error) throw error;
-    // ... criar leads para os novos
-  }
-
-  return results;
-}
-```
+A ingestão (`lib/apify/ingest.ts`) processa **em batch** (lotes de 100) — para
+200 registros isso é diferença de segundos vs minutos. Ver a seção de
+deduplicação acima para a regra de criação de leads.
 
 ## Fluxo do webhook (`/api/webhooks/apify`)
 
-Mesma lógica do import manual, mas:
-- Autentica via header `Authorization: Bearer <APIFY_WEBHOOK_SECRET>` (env var)
-- Recebe o payload do "RUN.SUCCEEDED" da APIFY
-- Busca o dataset do run via API APIFY (`https://api.apify.com/v2/datasets/{datasetId}/items`)
-- Processa em background (Vercel cron ou Supabase Edge Function se demorar > 10s)
-
-**Por que não fazer síncrono no webhook**: APIFY tem timeout no callback. Se você processar 500 registros no handler, ele estoura. Responda 200 rápido, processa depois.
+Rede de segurança da ingestão — garante o processamento mesmo se o usuário
+fechar o navegador antes de o polling concluir:
+- Registrado **por run** em `lib/apify/client.ts` (`startRun`), via o parâmetro
+  `webhooks` da APIFY, apontando para `/api/webhooks/apify`.
+- Autentica via header `Authorization: Bearer <APIFY_WEBHOOK_SECRET>` (env var).
+- Recebe o evento `RUN.SUCCEEDED`, localiza a busca pelo `apify_run_id` e chama
+  `processarBusca` — a mesma função do polling, protegida por lock na coluna
+  `buscas.status` (`running → processing → concluida`), o que garante
+  idempotência mesmo numa corrida entre webhook e polling.
+- Roda no Next.js/Vercel (sem Edge Function). A ingestão de ≤200 registros
+  conclui dentro do tempo do handler; `processarBusca` é aguardada antes do `200`.
 
 ## Enriquecimento pós-import
 
