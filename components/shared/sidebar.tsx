@@ -5,7 +5,7 @@ import {
   Building2,
   Users,
   CheckSquare,
-  Upload,
+  Radar,
 } from "lucide-react";
 
 const items = [
@@ -14,7 +14,7 @@ const items = [
   { href: "/clinicas", label: "Clínicas", icon: Building2 },
   { href: "/contatos", label: "Contatos", icon: Users },
   { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
-  { href: "/import", label: "Importar", icon: Upload },
+  { href: "/radar", label: "Radar", icon: Radar },
 ];
 
 export function Sidebar() {

@@ -2,7 +2,15 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, X, Flame, AlarmClock, MapPin, SlidersHorizontal } from "lucide-react";
+import {
+  Search,
+  X,
+  Flame,
+  AlarmClock,
+  MapPin,
+  SlidersHorizontal,
+  CircleHelp,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const ALL = "__all__";
@@ -19,6 +32,25 @@ const ALL = "__all__";
 const SCORE_PRESETS = [
   { label: "Hot ≥70", value: "70" },
   { label: "Quente ≥40", value: "40" },
+];
+
+// Regras de cálculo do score — espelham `calcularScore` em lib/scoring.ts.
+const SCORE_RULES = [
+  { points: 20, label: "WhatsApp confirmado e ativo." },
+  {
+    points: 20,
+    label: "Avaliação no Google acima de 4,0 com 50 ou mais reviews.",
+  },
+  {
+    points: 20,
+    label: "Clínica em capital ou cidade com mais de 200 mil habitantes.",
+  },
+  { points: 10, label: "Decisor identificado com telefone direto." },
+  {
+    points: 30,
+    label:
+      "Cliente oculto revelou atendimento ruim (dor real) — somado após o diagnóstico.",
+  },
 ];
 const PARADOS_PRESETS = [
   { label: "+7d", value: "7" },
@@ -122,9 +154,20 @@ export function KanbanFilters({ cidades }: { cidades: string[] }) {
         </Select>
 
         <div className="flex items-center gap-1 rounded-md bg-muted/50 p-0.5">
-          <span className="hidden items-center gap-1 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground md:flex">
+          <span className="hidden items-center gap-1 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground md:flex">
             <Flame className="h-3 w-3" /> Score
           </span>
+          <Tooltip>
+            <TooltipTrigger
+              aria-label="Como o score é calculado"
+              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <CircleHelp className="h-3.5 w-3.5" />
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="start" className="w-72">
+              <ScoreInfo />
+            </TooltipContent>
+          </Tooltip>
           {SCORE_PRESETS.map((p) => (
             <Chip
               key={p.value}
@@ -194,6 +237,32 @@ export function KanbanFilters({ cidades }: { cidades: string[] }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ScoreInfo() {
+  return (
+    <div className="space-y-2">
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Flame className="h-3 w-3" />
+        Como o score é calculado
+      </p>
+      <ul className="space-y-1.5">
+        {SCORE_RULES.map((rule) => (
+          <li key={rule.label} className="flex items-start gap-2">
+            <span className="mt-px shrink-0 rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums">
+              +{rule.points}
+            </span>
+            <span className="text-[11px] leading-snug text-foreground/80">
+              {rule.label}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="border-t border-foreground/10 pt-1.5 text-[10px] text-muted-foreground">
+        Pontuação máxima: 100 pontos.
+      </p>
     </div>
   );
 }

@@ -43,7 +43,7 @@ export function DashboardHero({ userEmail }: { userEmail: string | null }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/import" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+          <Link href="/radar" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
             <Upload className="h-4 w-4" />
             Importar leads
           </Link>

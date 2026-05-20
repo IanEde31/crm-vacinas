@@ -29,6 +29,7 @@ export type TipoAtividade =
   | "mudanca_estagio";
 export type ResultadoAtividade = "sucesso" | "sem_resposta" | "reagendado" | "objecao";
 export type PrioridadeTarefa = "baixa" | "media" | "alta";
+export type StatusBusca = "running" | "processing" | "concluida" | "falhou";
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
@@ -132,6 +133,25 @@ type TarefasRow = {
   prioridade: PrioridadeTarefa;
   owner_id: string | null;
   created_at: string;
+};
+
+type BuscasRow = {
+  id: string;
+  cidade: string;
+  estado: string;
+  termos: string[];
+  quantidade: number;
+  apify_run_id: string | null;
+  apify_dataset_id: string | null;
+  status: StatusBusca;
+  total_encontradas: number;
+  novas: number;
+  atualizadas: number;
+  descartadas: number;
+  erro: string | null;
+  iniciada_por: string | null;
+  created_at: string;
+  concluida_em: string | null;
 };
 
 type TableShape<TRow, TInsertOptional extends keyof TRow> = {
@@ -238,6 +258,21 @@ export type Database = {
         | "prioridade"
         | "owner_id"
         | "created_at"
+      >;
+      buscas: TableShape<
+        BuscasRow,
+        | "id"
+        | "apify_run_id"
+        | "apify_dataset_id"
+        | "status"
+        | "total_encontradas"
+        | "novas"
+        | "atualizadas"
+        | "descartadas"
+        | "erro"
+        | "iniciada_por"
+        | "created_at"
+        | "concluida_em"
       >;
     };
     Views: Record<string, never>;

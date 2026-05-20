@@ -120,3 +120,88 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* ===========================================================================
+   Animações da busca de leads (/radar) — varredura "radar" em CSS puro.
+   =========================================================================== */
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes radar-ping {
+  0% { transform: scale(0.35); opacity: 0.65; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+
+@keyframes pin-drop {
+  0% { transform: translateY(-14px) scale(0); opacity: 0; }
+  55% { transform: translateY(0) scale(1.25); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes lupa-rove {
+  0% { transform: translate(-32%, -22%) rotate(-8deg); }
+  25% { transform: translate(38%, -12%) rotate(7deg); }
+  50% { transform: translate(22%, 32%) rotate(-5deg); }
+  75% { transform: translate(-26%, 20%) rotate(9deg); }
+  100% { transform: translate(-32%, -22%) rotate(-8deg); }
+}
+
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+@keyframes grid-pan {
+  from { background-position: 0 0; }
+  to { background-position: 44px 44px; }
+}
+
+/* Variante do pin para elementos SVG: só escala + opacidade (translate em
+   unidades de SVG é dependente da escala do viewBox). */
+@keyframes pin-drop-svg {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@layer utilities {
+  .animate-radar-sweep { animation: radar-sweep 4.5s linear infinite; }
+  .animate-radar-ping { animation: radar-ping 2.6s ease-out infinite; }
+  .animate-pin-drop { animation: pin-drop 0.55s cubic-bezier(0.34, 1.56, 0.55, 1) both; }
+  .animate-lupa-rove { animation: lupa-rove 10s ease-in-out infinite; }
+  .animate-float-soft { animation: float-soft 3.2s ease-in-out infinite; }
+  .animate-grid-pan { animation: grid-pan 3.4s linear infinite; }
+
+  /* Variantes para elementos SVG — exigem transform-box explícito. */
+  .animate-radar-sweep-svg {
+    transform-box: view-box;
+    animation: radar-sweep 4.5s linear infinite;
+  }
+  .animate-radar-ping-svg {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: radar-ping 2.6s ease-out infinite;
+  }
+  .animate-pin-drop-svg {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pin-drop-svg 0.5s cubic-bezier(0.34, 1.56, 0.55, 1) both;
+  }
+}
+
+/* Acessibilidade: reduz o movimento da varredura quando solicitado. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-radar-sweep,
+  .animate-radar-sweep-svg,
+  .animate-radar-ping,
+  .animate-radar-ping-svg,
+  .animate-lupa-rove,
+  .animate-grid-pan,
+  .animate-float-soft {
+    animation-duration: 0.001s;
+    animation-iteration-count: 1;
+  }
+}
