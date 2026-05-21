@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ESTAGIO_IDS } from "@/lib/estagios";
 import { fetchLeadDetail, type LeadDetail } from "@/lib/leads/queries";
+import { dispararClienteOculto } from "@/lib/n8n/cliente-oculto";
 
 type ActionResult = { ok: true } | { error: string };
 
@@ -13,10 +14,12 @@ const updateEstagioSchema = z.object({
   novoEstagio: z.enum(ESTAGIO_IDS),
 });
 
+type EstagioResult = { error: string } | { ok: true; avisoDisparo?: string };
+
 export async function updateLeadEstagio(input: {
   leadId: string;
   novoEstagio: string;
-}): Promise<ActionResult> {
+}): Promise<EstagioResult> {
   const parsed = updateEstagioSchema.safeParse(input);
   if (!parsed.success) return { error: "Estágio inválido" };
 
@@ -27,6 +30,135 @@ export async function updateLeadEstagio(input: {
     .eq("id", parsed.data.leadId);
 
   if (error) return { error: error.message };
+
+  // Entrou em Cliente Oculto: dispara a abordagem via n8n. Best-effort — a
+  // mudança de estágio já está persistida e não fica refém do webhook. Uma
+  // falha volta como aviso; o disparo continua retentável pelo drawer.
+  let avisoDisparo: string | undefined;
+  if (parsed.data.novoEstagio === "cliente_oculto") {
+    const outcome = await dispararAbordagemClienteOculto(supabase, parsed.data.leadId);
+    if (outcome.status === "falhou") {
+      avisoDisparo = `Lead movido, mas a abordagem não foi disparada: ${outcome.error}`;
+    }
+  }
+
+  revalidatePath("/leads");
+  return avisoDisparo ? { ok: true, avisoDisparo } : { ok: true };
+}
+
+type DisparoOutcome =
+  | { status: "disparado" }
+  | { status: "ja_disparado" }
+  | { status: "falhou"; error: string };
+
+type ClinicaDisparo = {
+  nome: string;
+  whatsapp: string | null;
+  telefone: string | null;
+  cidade: string | null;
+  estado: string | null;
+};
+
+/**
+ * Dispara a abordagem de cliente oculto para o n8n.
+ *
+ * Idempotente: a tabela `clientes_ocultos` tem `unique (lead_id)`, então o
+ * upsert com `ignoreDuplicates` garante no máximo uma linha por lead; o campo
+ * `disparo_em` registra que o webhook já foi confirmado e impede um segundo
+ * disparo (mesmo que o lead reentre no estágio).
+ *
+ * `disparo_em` é gravado SÓ depois de o n8n confirmar o recebimento. Se o
+ * webhook falhar, o campo fica NULL e o disparo continua retentável. A
+ * atividade `whatsapp` na timeline é registrada pelo n8n quando a mensagem
+ * de fato sai — não aqui — para não duplicar o evento.
+ */
+async function dispararAbordagemClienteOculto(
+  supabase: ReturnType<typeof createClient>,
+  leadId: string,
+): Promise<DisparoOutcome> {
+  // Garante a linha de cliente oculto sem sobrescrever uma já existente.
+  const { error: upsertErr } = await supabase
+    .from("clientes_ocultos")
+    .upsert({ lead_id: leadId }, { onConflict: "lead_id", ignoreDuplicates: true });
+  if (upsertErr) return { status: "falhou", error: upsertErr.message };
+
+  const { data: co, error: coErr } = await supabase
+    .from("clientes_ocultos")
+    .select("id, disparo_em")
+    .eq("lead_id", leadId)
+    .maybeSingle();
+  if (coErr) return { status: "falhou", error: coErr.message };
+  if (!co) return { status: "falhou", error: "Registro de cliente oculto não encontrado." };
+  if (co.disparo_em) return { status: "ja_disparado" };
+
+  // Dados que o n8n precisa para abrir a conversa.
+  const { data: lead, error: leadErr } = await supabase
+    .from("leads")
+    .select("clinica:clinicas ( nome, whatsapp, telefone, cidade, estado )")
+    .eq("id", leadId)
+    .maybeSingle();
+  if (leadErr) return { status: "falhou", error: leadErr.message };
+
+  const clinica =
+    (lead as unknown as { clinica: ClinicaDisparo | null } | null)?.clinica ?? null;
+  if (!clinica) return { status: "falhou", error: "Clínica do lead não encontrada." };
+  if (!clinica.whatsapp && !clinica.telefone) {
+    return {
+      status: "falhou",
+      error: "Clínica sem WhatsApp ou telefone cadastrado — atualize o contato antes de disparar.",
+    };
+  }
+
+  const resultado = await dispararClienteOculto({
+    lead_id: leadId,
+    clientes_ocultos_id: co.id,
+    clinica: {
+      nome: clinica.nome,
+      whatsapp: clinica.whatsapp,
+      telefone: clinica.telefone,
+      cidade: clinica.cidade,
+      estado: clinica.estado,
+    },
+  });
+  if (!resultado.ok) return { status: "falhou", error: resultado.error };
+
+  // Webhook confirmado: marca o disparo. A partir daqui o n8n assume a conversa
+  // (preenche `enviado_em` e registra a atividade quando a mensagem sai).
+  const { error: updErr } = await supabase
+    .from("clientes_ocultos")
+    .update({ disparo_em: new Date().toISOString() })
+    .eq("id", co.id);
+  if (updErr) return { status: "falhou", error: updErr.message };
+
+  return { status: "disparado" };
+}
+
+/**
+ * Reenvia manualmente a abordagem de cliente oculto.
+ * Usado pelo botão no drawer quando o disparo automático falhou (n8n fora).
+ */
+export async function reenviarAbordagemClienteOculto(
+  leadId: string,
+): Promise<ActionResult> {
+  const parsed = z.string().uuid().safeParse(leadId);
+  if (!parsed.success) return { error: "Lead inválido" };
+
+  const supabase = createClient();
+
+  const { data: lead, error: leadErr } = await supabase
+    .from("leads")
+    .select("estagio")
+    .eq("id", parsed.data)
+    .maybeSingle();
+  if (leadErr) return { error: leadErr.message };
+  if (!lead) return { error: "Lead não encontrado" };
+  if (lead.estagio !== "cliente_oculto") {
+    return { error: "O lead não está no estágio Cliente Oculto." };
+  }
+
+  const outcome = await dispararAbordagemClienteOculto(supabase, parsed.data);
+  if (outcome.status === "falhou") return { error: outcome.error };
+
   revalidatePath("/leads");
   return { ok: true };
 }
@@ -122,9 +254,12 @@ export async function upsertClienteOculto(input: ClienteOcultoInput): Promise<Ac
     transcricao: parsed.data.transcricao || null,
   };
 
-  const { error } = parsed.data.id
-    ? await supabase.from("clientes_ocultos").update(payload).eq("id", parsed.data.id)
-    : await supabase.from("clientes_ocultos").insert(payload);
+  // upsert por lead_id: a constraint unique (lead_id) garante uma linha por
+  // lead. Cobre o caso de a linha já ter sido criada pelo disparo automático
+  // do cliente oculto enquanto este formulário exibia um snapshot antigo.
+  const { error } = await supabase
+    .from("clientes_ocultos")
+    .upsert(payload, { onConflict: "lead_id" });
 
   if (error) return { error: error.message };
   revalidatePath("/leads");

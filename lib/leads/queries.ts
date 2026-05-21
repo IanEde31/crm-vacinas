@@ -163,6 +163,7 @@ export type LeadDetail = {
   }[];
   cliente_oculto: {
     id: string;
+    disparo_em: string | null;
     enviado_em: string | null;
     primeira_resposta_em: string | null;
     tempo_resposta_minutos: number | null;
@@ -200,7 +201,7 @@ export async function fetchLeadDetail(leadId: string): Promise<LeadDetail | null
         contatos ( id, nome, cargo, telefone, email, is_decisor, observacoes, deleted_at )
       ),
       atividades ( id, tipo, titulo, descricao, resultado, duracao_minutos, realizada_em, user_id ),
-      clientes_ocultos ( id, enviado_em, primeira_resposta_em, tempo_resposta_minutos, respondeu, tentou_agendar, fez_followup, qualidade_atendimento, conseguiu_preco, observacoes, transcricao, created_at ),
+      clientes_ocultos ( id, disparo_em, enviado_em, primeira_resposta_em, tempo_resposta_minutos, respondeu, tentou_agendar, fez_followup, qualidade_atendimento, conseguiu_preco, observacoes, transcricao, created_at ),
       tarefas ( id, titulo, descricao, prazo, concluida, concluida_em, prioridade )
       `,
     )

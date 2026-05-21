@@ -1,0 +1,321 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "disparo",
+        "options": {}
+      },
+      "id": "d7e56da5-ae91-46fd-ab70-890287d65194",
+      "name": "Webhook do CRM",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -960,
+        32
+      ],
+      "webhookId": "0056349c-fd70-49e9-8f32-dc6594c8f5bc",
+      "notes": "Recebe POST do CRM (um lead por chamada): { lead_id, clientes_ocultos_id, clinica:{...} }. Responde na hora (sem Respond node)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Valida o payload do CRM. O CRM envia UM lead por chamada:\n// { lead_id, clientes_ocultos_id, clinica: { nome, whatsapp, telefone, cidade, estado } }\nconst body = $input.first().json.body;\n\nif (!body || typeof body.lead_id !== 'string' || body.lead_id.trim() === '') {\n  throw new Error('Payload inválido: lead_id ausente');\n}\n\nreturn [{\n  json: {\n    lead_id: body.lead_id,\n    clientes_ocultos_id: body.clientes_ocultos_id ?? null,\n    clinica: body.clinica ?? {},\n  },\n}];\n"
+      },
+      "id": "a40557e6-ff82-414d-8fdd-98b343186b2e",
+      "name": "Validar payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -736,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT l.id AS lead_id,\n       l.deleted_at,\n       c.nome     AS clinica_nome,\n       c.whatsapp,\n       c.telefone,\n       c.cidade,\n       c.estado,\n       co.enviado_em\nFROM leads l\nJOIN clinicas c ON c.id = l.clinica_id\nLEFT JOIN clientes_ocultos co ON co.lead_id = l.id\nWHERE l.id = $1 AND c.deleted_at IS NULL\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id] }}"
+        }
+      },
+      "id": "e88361a5-19b5-4c61-96e1-b04ba8cdd205",
+      "name": "Buscar lead no Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -528,
+        32
+      ],
+      "notes": "Busca dados frescos da clínica + checa enviado_em (dedup do lado n8n)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "not-deleted",
+              "leftValue": "={{ $json.deleted_at }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty"
+              }
+            },
+            {
+              "id": "not-sent",
+              "leftValue": "={{ $json.enviado_em }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty"
+              }
+            },
+            {
+              "id": "has-number",
+              "leftValue": "={{ $json.whatsapp || $json.telefone }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1cc4953c-bac9-4bc6-8a4f-47665485532e",
+      "name": "Lead elegível?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        32
+      ],
+      "notes": "Dispara só se: não deletado + ainda não enviado + tem whatsapp ou telefone."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sorteia uma das 3 variações de mensagem inicial e resolve o número de destino.\nconst entrada = $input.first().json;\n\nconst variacoes = [\n  {\n    id: 'A',\n    texto: 'Oi, boa tarde! Tudo bem? Vi vocês aqui no Google e queria tirar umas dúvidas sobre vacinas pro meu filho de 6 meses. Vocês atendem?'\n  },\n  {\n    id: 'B',\n    texto: 'Olá! Tudo bem? Meu nome é Carlos, tô pesquisando umas vacinas particulares pro meu bebê de 6 meses e queria entender o que vocês oferecem. Pode me ajudar?'\n  },\n  {\n    id: 'C',\n    texto: 'Oi, boa tarde 😊 Tô buscando informação sobre vacinas particulares pra criança pequena (6 meses). Vocês podem me passar como funciona aí?'\n  }\n];\n\nconst sorteada = variacoes[Math.floor(Math.random() * variacoes.length)];\n\n// Ajusta a saudação ao horário (BRT = UTC-3), com wrap correto de 0-23h.\nconst hora = ((new Date().getUTCHours() - 3) + 24) % 24;\nlet mensagem = sorteada.texto;\nif (hora < 12) mensagem = mensagem.replace('boa tarde', 'bom dia');\nelse if (hora >= 18) mensagem = mensagem.replace('boa tarde', 'boa noite');\n\n// Número de destino: whatsapp da clínica, com fallback para telefone.\nconst numero = String(entrada.whatsapp || entrada.telefone || '').replace(/\\D/g, '');\n\nreturn [{\n  json: {\n    ...entrada,\n    variacao_id: sorteada.id,\n    mensagem,\n    numero,\n  },\n}];\n"
+      },
+      "id": "8092f133-9576-44a0-af35-cf387a44cdef",
+      "name": "Sortear variação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://SEU_EVOLUTION_HOST/message/sendText/SEU_INSTANCE_NAME",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { number: $json.numero, text: $json.mensagem } }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "7f4431b3-986f-4699-a75c-9d95a407bd87",
+      "name": "Enviar via Evolution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        144,
+        -32
+      ],
+      "notes": "Trocar SEU_EVOLUTION_HOST e SEU_INSTANCE_NAME. A apikey vai na credencial Header Auth."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE clientes_ocultos\nSET enviado_em = NOW()\nWHERE lead_id = $1 AND enviado_em IS NULL;",
+        "options": {
+          "queryReplacement": "={{ [$('Sortear variação').item.json.lead_id] }}"
+        }
+      },
+      "id": "39dca822-82d4-4c68-aafa-1443d264cc2d",
+      "name": "Marcar enviado_em no Supabase",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        368,
+        -32
+      ],
+      "notes": "Só enviado_em. disparo_em é gravado pelo CRM; não tocar aqui."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO atividades (lead_id, tipo, titulo, descricao, resultado, realizada_em)\nVALUES ($1, 'whatsapp', 'Abordagem de cliente oculto enviada', $2, 'sucesso', NOW());",
+        "options": {
+          "queryReplacement": "={{ [$('Sortear variação').item.json.lead_id, 'Variação ' + $('Sortear variação').item.json.variacao_id + ' — ' + $('Sortear variação').item.json.mensagem] }}"
+        }
+      },
+      "id": "7760e201-3689-46d1-89d7-23508bb8d356",
+      "name": "Registrar atividade na timeline",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        592,
+        -32
+      ],
+      "notes": "tipo='whatsapp' (único valor aceito pelo CHECK de atividades para este evento)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lead não elegível para disparo — registra o motivo e encerra sem erro.\nconst j = $input.first().json;\nlet motivo = 'desconhecido';\nif (j.deleted_at) motivo = 'lead deletado';\nelse if (j.enviado_em) motivo = 'cliente oculto já enviado anteriormente';\nelse if (!j.whatsapp && !j.telefone) motivo = 'clínica sem whatsapp/telefone';\n\nreturn [{ json: { lead_id: j.lead_id, skipped: true, motivo } }];\n"
+      },
+      "id": "370ab993-3d72-414f-a1d6-5e88cae122ac",
+      "name": "Pular lead inválido",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        208
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook do CRM": {
+      "main": [
+        [
+          {
+            "node": "Validar payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar payload": {
+      "main": [
+        [
+          {
+            "node": "Buscar lead no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar lead no Supabase": {
+      "main": [
+        [
+          {
+            "node": "Lead elegível?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead elegível?": {
+      "main": [
+        [
+          {
+            "node": "Sortear variação",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pular lead inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sortear variação": {
+      "main": [
+        [
+          {
+            "node": "Enviar via Evolution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar via Evolution": {
+      "main": [
+        [
+          {
+            "node": "Marcar enviado_em no Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar enviado_em no Supabase": {
+      "main": [
+        [
+          {
+            "node": "Registrar atividade na timeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar atividade na timeline": {
+      "main": [
+        []
+      ]
+    },
+    "Pular lead inválido": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "pinData": {
+    "Webhook do CRM": [
+      {
+        "headers": {
+          "content-type": "application/json"
+        },
+        "params": {},
+        "query": {},
+        "body": {
+          "lead_id": "84943c30-8f63-472e-a430-791f7b1b23a6",
+          "clientes_ocultos_id": "bad48820-540b-4dbe-bfb4-00db28705c9a",
+          "clinica": {
+            "nome": "Clinica Veterinaria Petzin",
+            "whatsapp": "+5531996304382",
+            "telefone": "+5531996304382",
+            "cidade": "Belo Horizonte",
+            "estado": "MG"
+          }
+        },
+        "webhookUrl": "https://vacinasdev.7bee.ai/webhook-test/disparo",
+        "executionMode": "test"
+      }
+    ]
+  },
+  "meta": {
+    "instanceId": "c4cb3d64f50b3cf5ddefc700fd252c1fbede1f0acc11a29122ae7cefdb905b46"
+  }
+}

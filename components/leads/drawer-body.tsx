@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { VisaoGeral } from "./visao-geral";
 import { TimelineAtividades } from "./timeline-atividades";
 import { ClienteOcultoForm } from "./cliente-oculto-form";
+import { ClienteOcultoDisparo } from "./cliente-oculto-disparo";
 import { TarefasList } from "./tarefas-list";
 import type { LeadDetail } from "@/lib/leads/queries";
 
@@ -77,6 +78,12 @@ export function DrawerBody({ data }: { data: LeadDetail }) {
             <TimelineAtividades data={data} />
           </TabsContent>
           <TabsContent value="cliente-oculto">
+            {data.estagio === "cliente_oculto" && (
+              <ClienteOcultoDisparo
+                leadId={data.id}
+                disparoEm={data.cliente_oculto?.disparo_em ?? null}
+              />
+            )}
             <ClienteOcultoForm leadId={data.id} existing={data.cliente_oculto} />
           </TabsContent>
           <TabsContent value="tarefas">

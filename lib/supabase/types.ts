@@ -94,6 +94,7 @@ type LeadsRow = {
 type ClientesOcultosRow = {
   id: string;
   lead_id: string;
+  disparo_em: string | null;
   enviado_em: string | null;
   primeira_resposta_em: string | null;
   tempo_resposta_minutos: number | null;
@@ -222,6 +223,7 @@ export type Database = {
       clientes_ocultos: TableShape<
         ClientesOcultosRow,
         | "id"
+        | "disparo_em"
         | "enviado_em"
         | "primeira_resposta_em"
         | "tempo_resposta_minutos"

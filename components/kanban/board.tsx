@@ -68,6 +68,12 @@ export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
       setLeads((prev) =>
         prev.map((l) => (l.id === leadId ? { ...l, estagio: previousEstagio } : l)),
       );
+      return;
+    }
+    // O card já está no lugar — o disparo do cliente oculto é best-effort.
+    // Se o webhook do n8n falhou, avisa sem reverter a mudança de estágio.
+    if (res.avisoDisparo) {
+      toast.warning(res.avisoDisparo);
     }
   }
 
