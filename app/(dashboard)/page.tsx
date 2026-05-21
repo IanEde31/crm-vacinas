@@ -22,9 +22,10 @@ export default async function DashboardPage() {
   const todayStart = startOfDay(now).toISOString();
   const thirtyDaysAgo = subDays(now, 30).toISOString();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verificação local do JWT — o layout já validou a sessão; aqui só
+  // precisamos do e-mail para o hero.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userEmail = claimsData?.claims.email ?? null;
 
   const [
     leadsPipelineRes,
@@ -222,7 +223,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <DashboardHero userEmail={user?.email ?? null} />
+      <DashboardHero userEmail={userEmail} />
 
       <KpiRow
         mrrProjetado={mrrProjetado}

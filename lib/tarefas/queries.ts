@@ -181,11 +181,11 @@ export async function fetchTarefas(
   filters: TarefaFilters,
 ): Promise<{ tarefas: TarefaItem[]; currentUserId: string | null }> {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verificação local do JWT (ES256) em vez de getUser() — sem round-trip de rede.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims.sub ?? null;
 
-  const all = await fetchAllForUser(user?.id ?? null);
+  const all = await fetchAllForUser(userId);
 
   const status = filters.status ?? "pendentes";
   const scope = filters.scope ?? "todas";
@@ -202,8 +202,8 @@ export async function fetchTarefas(
     filtered = filtered.filter((t) => t.prioridade === filters.prioridade);
   }
 
-  if (scope === "minhas" && user?.id) {
-    filtered = filtered.filter((t) => t.owner_id === user.id);
+  if (scope === "minhas" && userId) {
+    filtered = filtered.filter((t) => t.owner_id === userId);
   }
 
   if (filters.busca) {
@@ -219,7 +219,7 @@ export async function fetchTarefas(
     );
   }
 
-  return { tarefas: filtered, currentUserId: user?.id ?? null };
+  return { tarefas: filtered, currentUserId: userId };
 }
 
 export async function fetchTarefasStats(): Promise<TarefaStats> {

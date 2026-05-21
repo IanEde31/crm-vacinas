@@ -9,17 +9,16 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
 
-  if (!user) redirect("/login");
+  if (!claims) redirect("/login");
 
   return (
     <div className="flex h-screen bg-muted/20">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Navbar user={{ email: user.email ?? "" }} />
+        <Navbar user={{ email: claims.email ?? "" }} />
         <main className="flex min-w-0 flex-1 flex-col overflow-y-auto p-6">
           {children}
         </main>
