@@ -66,7 +66,7 @@ export function LeadCard({
       {...attributes}
       onClick={onOpen}
       className={cn(
-        "group relative shrink-0 cursor-grab touch-none overflow-hidden rounded-lg bg-card text-sm ring-1 ring-foreground/10 shadow-sm transition-all",
+        "group relative shrink-0 cursor-grab touch-none overflow-hidden rounded-lg bg-card text-sm ring-1 ring-foreground/10 shadow-sm transition",
         "hover:-translate-y-0.5 hover:shadow-md hover:ring-foreground/20",
         isDragging && "opacity-30",
         dragging && "rotate-1 cursor-grabbing shadow-xl ring-foreground/20",
