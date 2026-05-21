@@ -10,24 +10,29 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ESTAGIOS } from "@/lib/estagios";
 import type { EstagioLead } from "@/lib/supabase/types";
 import type { KanbanLead as LeadKanban } from "@/lib/leads/queries";
 import { KanbanColumn } from "./column";
 import { LeadCard } from "./card";
+import { LeadDrawer } from "@/components/leads/drawer";
 import { updateLeadEstagio } from "@/app/(dashboard)/leads/actions";
 
 export type { KanbanLead as LeadKanban } from "@/lib/leads/queries";
 
 export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
-  const router = useRouter();
   const [leads, setLeads] = useState<LeadKanban[]>(initialLeads);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  // Incrementado a cada vez que o servidor entrega novos dados. Sinaliza ao
+  // drawer aberto que ele deve re-buscar seu detalhe (mantém-o fresco sem
+  // depender de um refresh global da página).
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     setLeads(initialLeads);
+    setRefreshTick((t) => t + 1);
   }, [initialLeads]);
 
   const sensors = useSensors(
@@ -50,6 +55,9 @@ export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
 
     const previousEstagio = lead.estagio;
 
+    // Update otimista: o card já está na coluna certa e o estado do cliente
+    // bate com o banco. Não há `router.refresh()` aqui — ele forçaria um
+    // refetch completo da página sem trazer nenhuma informação nova.
     setLeads((prev) =>
       prev.map((l) => (l.id === leadId ? { ...l, estagio: novoEstagio } : l)),
     );
@@ -60,9 +68,7 @@ export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
       setLeads((prev) =>
         prev.map((l) => (l.id === leadId ? { ...l, estagio: previousEstagio } : l)),
       );
-      return;
     }
-    router.refresh();
   }
 
   const leadsByEstagio = ESTAGIOS.reduce<Record<EstagioLead, LeadKanban[]>>(
@@ -76,15 +82,29 @@ export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
   const activeLead = activeId ? leads.find((l) => l.id === activeId) ?? null : null;
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden pb-2">
-        {ESTAGIOS.map(({ id, label }) => (
-          <KanbanColumn key={id} id={id} label={label} leads={leadsByEstagio[id]} />
-        ))}
-      </div>
-      <DragOverlay dropAnimation={null}>
-        {activeLead ? <LeadCard lead={activeLead} dragging /> : null}
-      </DragOverlay>
-    </DndContext>
+    <>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden pb-2">
+          {ESTAGIOS.map(({ id, label }) => (
+            <KanbanColumn
+              key={id}
+              id={id}
+              label={label}
+              leads={leadsByEstagio[id]}
+              onOpenLead={setSelectedLeadId}
+            />
+          ))}
+        </div>
+        <DragOverlay dropAnimation={null}>
+          {activeLead ? <LeadCard lead={activeLead} dragging /> : null}
+        </DragOverlay>
+      </DndContext>
+
+      <LeadDrawer
+        leadId={selectedLeadId}
+        refreshTick={refreshTick}
+        onClose={() => setSelectedLeadId(null)}
+      />
+    </>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MapPin, Radar, Search, Sparkles, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -157,19 +158,20 @@ export function BuscaForm({
         <form onSubmit={submit} className="space-y-5 p-6">
           <div className="grid gap-4 sm:grid-cols-[1fr_1.6fr]">
             <div className="space-y-1.5">
-              <Label>Estado</Label>
-              <Select value={estado} onValueChange={(v) => setEstado(v ?? "")}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="UF" />
-                </SelectTrigger>
-                <SelectContent>
-                  {UFS.map((uf) => (
-                    <SelectItem key={uf.sigla} value={uf.sigla}>
-                      {uf.sigla} — {uf.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="estado">Estado</Label>
+              <Combobox
+                id="estado"
+                options={UFS.map((uf) => ({
+                  value: uf.sigla,
+                  label: `${uf.sigla} — ${uf.nome}`,
+                }))}
+                value={estado}
+                onValueChange={setEstado}
+                placeholder="UF"
+                searchPlaceholder="Buscar estado..."
+                emptyMessage="Estado não encontrado."
+                aria-label="Estado"
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -190,29 +192,31 @@ export function BuscaForm({
                   </p>
                 </>
               ) : (
-                <Select
+                <Combobox
+                  id="cidade"
+                  options={municipios.map((m) => ({ value: m, label: m }))}
                   value={cidade}
-                  onValueChange={(v) => setCidade(v ?? "")}
+                  onValueChange={setCidade}
                   disabled={!estado || carregandoCidades}
-                >
-                  <SelectTrigger className="w-full" id="cidade">
-                    <SelectValue placeholder={cidadePlaceholder} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {municipios.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder={cidadePlaceholder}
+                  searchPlaceholder="Buscar cidade..."
+                  emptyMessage="Nenhuma cidade encontrada."
+                  icon={<MapPin />}
+                />
               )}
             </div>
           </div>
 
           <div className="space-y-1.5">
             <Label>Tipo de clínica</Label>
-            <Select value={termo} onValueChange={(v) => setTermo(v ?? termo)}>
+            <Select
+              items={{
+                ...Object.fromEntries(TERMOS_BUSCA.map((t) => [t.id, t.label])),
+                [TERMO_TODOS]: "Todos os termos (recomendado)",
+              }}
+              value={termo}
+              onValueChange={(v) => setTermo(v ?? termo)}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>

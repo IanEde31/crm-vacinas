@@ -12,10 +12,12 @@ export function KanbanColumn({
   id,
   label,
   leads,
+  onOpenLead,
 }: {
   id: EstagioLead;
   label: string;
   leads: LeadKanban[];
+  onOpenLead: (leadId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   const theme = ESTAGIO_THEME[id];
@@ -59,7 +61,13 @@ export function KanbanColumn({
             <span>{isOver ? "Soltar aqui" : "Vazio"}</span>
           </div>
         ) : (
-          leads.map((lead) => <LeadCard key={lead.id} lead={lead} />)
+          leads.map((lead) => (
+            <LeadCard
+              key={lead.id}
+              lead={lead}
+              onOpen={() => onOpenLead(lead.id)}
+            />
+          ))
         )}
       </div>
     </div>

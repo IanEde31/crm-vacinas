@@ -57,6 +57,20 @@ export function FiltersBar() {
     });
   }
 
+  // Mapas valor→rótulo: o gatilho do Select exibe o texto legível.
+  const statusItems = {
+    pendentes: "Pendentes",
+    concluidas: "Concluídas",
+    todas: "Todas",
+  };
+  const prioridadeItems = {
+    [ALL]: "Qualquer prioridade",
+    alta: "Alta",
+    media: "Média",
+    baixa: "Baixa",
+  };
+  const scopeItems = { todas: "Todas", minhas: "Minhas" };
+
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3">
       <div className="relative min-w-[220px] flex-1">
@@ -70,6 +84,7 @@ export function FiltersBar() {
       </div>
 
       <Select
+        items={statusItems}
         value={status}
         onValueChange={(v) => applyParams({ status: v === "pendentes" ? "" : (v ?? "") })}
       >
@@ -84,6 +99,7 @@ export function FiltersBar() {
       </Select>
 
       <Select
+        items={prioridadeItems}
         value={prioridade || ALL}
         onValueChange={(v) => applyParams({ prioridade: !v || v === ALL ? "" : v })}
       >
@@ -99,6 +115,7 @@ export function FiltersBar() {
       </Select>
 
       <Select
+        items={scopeItems}
         value={scope}
         onValueChange={(v) => applyParams({ scope: v === "todas" ? "" : (v ?? "") })}
       >

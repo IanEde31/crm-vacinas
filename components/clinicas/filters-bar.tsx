@@ -47,6 +47,31 @@ export function FiltersBar({ estados }: { estados: string[] }) {
 
   const hasFilters = Boolean(busca || estado || porte || ratingMin);
 
+  // Mapas valor→rótulo: fazem o gatilho do Select exibir o texto legível
+  // em vez do valor cru (ex.: "__all__").
+  const estadoItems = {
+    [ALL]: "Todos UFs",
+    ...Object.fromEntries(estados.map((s) => [s, s])),
+  };
+  const porteItems = {
+    [ALL]: "Qualquer porte",
+    pequeno: "Pequeno",
+    medio: "Médio",
+    grande: "Grande",
+  };
+  const ratingItems = {
+    [ALL]: "Qualquer ★",
+    "3": "≥ 3.0 ★",
+    "4": "≥ 4.0 ★",
+    "4.5": "≥ 4.5 ★",
+  };
+  const sortItems = {
+    rating: "Maior rating",
+    reviews: "Mais avaliadas",
+    recent: "Mais recentes",
+    nome: "Nome (A-Z)",
+  };
+
   function clearAll() {
     setBusca("");
     applyParams({ busca: "", estado: "", porte: "", ratingMin: "", cidade: "" });
@@ -65,6 +90,7 @@ export function FiltersBar({ estados }: { estados: string[] }) {
       </div>
 
       <Select
+        items={estadoItems}
         value={estado || ALL}
         onValueChange={(v) => {
           const next = !v || v === ALL ? "" : v;
@@ -85,6 +111,7 @@ export function FiltersBar({ estados }: { estados: string[] }) {
       </Select>
 
       <Select
+        items={porteItems}
         value={porte || ALL}
         onValueChange={(v) => {
           const next = !v || v === ALL ? "" : v;
@@ -103,6 +130,7 @@ export function FiltersBar({ estados }: { estados: string[] }) {
       </Select>
 
       <Select
+        items={ratingItems}
         value={ratingMin || ALL}
         onValueChange={(v) => {
           const next = !v || v === ALL ? "" : v;
@@ -122,6 +150,7 @@ export function FiltersBar({ estados }: { estados: string[] }) {
 
       <div className="ml-auto flex items-center gap-2">
         <Select
+          items={sortItems}
           value={sort}
           onValueChange={(v) => applyParams({ sort: v ?? "rating" })}
         >

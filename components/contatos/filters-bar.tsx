@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X, Crown, CheckSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Select,
   SelectContent,
@@ -67,6 +68,26 @@ export function FiltersBar({
     });
   }
 
+  // Mapas valor→rótulo: o gatilho do Select exibe o texto legível.
+  const cargoItems = {
+    [ALL]: "Qualquer cargo",
+    socio: "Sócio",
+    gestor: "Gestor",
+    medico: "Médico",
+    recepcao: "Recepção",
+    outro: "Outro",
+  };
+  const clinicaOptions = [
+    { value: "", label: "Todas as clínicas" },
+    ...clinicas.map((c) => ({ value: c.id, label: c.nome })),
+  ];
+  const sortItems = {
+    decisor: "Decisores primeiro",
+    nome: "Nome (A-Z)",
+    clinica: "Por clínica",
+    recent: "Mais recentes",
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3">
       <div className="relative min-w-[220px] flex-1">
@@ -80,6 +101,7 @@ export function FiltersBar({
       </div>
 
       <Select
+        items={cargoItems}
         value={cargo || ALL}
         onValueChange={(v) => applyParams({ cargo: !v || v === ALL ? "" : v })}
       >
@@ -96,22 +118,16 @@ export function FiltersBar({
         </SelectContent>
       </Select>
 
-      <Select
-        value={clinicaId || ALL}
-        onValueChange={(v) => applyParams({ clinicaId: !v || v === ALL ? "" : v })}
-      >
-        <SelectTrigger className="w-48">
-          <SelectValue placeholder="Clínica" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>Todas as clínicas</SelectItem>
-          {clinicas.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
-              {c.nome}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Combobox
+        className="w-48"
+        options={clinicaOptions}
+        value={clinicaId}
+        onValueChange={(v) => applyParams({ clinicaId: v })}
+        placeholder="Clínica"
+        searchPlaceholder="Buscar clínica..."
+        emptyMessage="Nenhuma clínica encontrada."
+        aria-label="Filtrar por clínica"
+      />
 
       <ToggleChip
         active={decisor}
@@ -131,6 +147,7 @@ export function FiltersBar({
 
       <div className="ml-auto flex items-center gap-2">
         <Select
+          items={sortItems}
           value={sort}
           onValueChange={(v) => applyParams({ sort: v ?? "decisor" })}
         >

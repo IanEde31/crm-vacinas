@@ -1,11 +1,9 @@
 import { Flame, AlarmClock, Layers } from "lucide-react";
 import { KanbanBoard } from "@/components/kanban/board";
 import { KanbanFilters } from "@/components/kanban/filters";
-import { LeadDrawer } from "@/components/leads/drawer";
 import {
   fetchCidadesDistintas,
   fetchKanbanLeads,
-  fetchLeadDetail,
   type KanbanFilters as KanbanFiltersType,
 } from "@/lib/leads/queries";
 import { differenceInCalendarDays } from "date-fns";
@@ -35,12 +33,10 @@ export default async function LeadsPage({
   searchParams: { [k: string]: string | string[] | undefined };
 }) {
   const filters = parseFilters(searchParams);
-  const leadId = typeof searchParams.lead === "string" ? searchParams.lead : null;
 
-  const [leads, cidades, detail] = await Promise.all([
+  const [leads, cidades] = await Promise.all([
     fetchKanbanLeads(filters),
     fetchCidadesDistintas(),
-    leadId ? fetchLeadDetail(leadId) : Promise.resolve(null),
   ]);
 
   const ativos = leads.filter(
@@ -91,8 +87,6 @@ export default async function LeadsPage({
       ) : (
         <KanbanBoard initialLeads={leads} />
       )}
-
-      <LeadDrawer data={detail} />
     </div>
   );
 }

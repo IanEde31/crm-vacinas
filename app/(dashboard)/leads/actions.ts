@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ESTAGIO_IDS } from "@/lib/estagios";
+import { fetchLeadDetail, type LeadDetail } from "@/lib/leads/queries";
 
 type ActionResult = { ok: true } | { error: string };
 
@@ -326,4 +327,22 @@ export async function deleteContato(contatoId: string): Promise<ActionResult> {
   if (error) return { error: error.message };
   revalidatePath("/leads");
   return { ok: true };
+}
+
+/**
+ * Carrega o detalhe de um lead para o drawer.
+ * É uma Server Action de leitura: o drawer abre por estado de cliente
+ * (sem navegação) e busca o detalhe sob demanda — uma consulta enxuta,
+ * em vez de re-renderizar a página inteira a cada clique de card.
+ */
+export async function fetchLeadDetailAction(
+  leadId: string,
+): Promise<LeadDetail | null> {
+  const parsed = z.string().uuid().safeParse(leadId);
+  if (!parsed.success) return null;
+  try {
+    return await fetchLeadDetail(parsed.data);
+  } catch {
+    return null;
+  }
 }

@@ -5,7 +5,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { differenceInCalendarDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Phone, MessageCircle, MapPin, CalendarClock, Flame } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { QuickAtividadeButton } from "./quick-atividade-button";
 import type { KanbanLead as LeadKanban } from "@/lib/leads/queries";
@@ -42,12 +41,12 @@ function scoreStyle(score: number) {
 export function LeadCard({
   lead,
   dragging = false,
+  onOpen,
 }: {
   lead: LeadKanban;
   dragging?: boolean;
+  onOpen?: () => void;
 }) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
   });
@@ -59,19 +58,13 @@ export function LeadCard({
   const proximaData = lead.proxima_acao_data ? new Date(lead.proxima_acao_data) : null;
   const proximaAtrasada = proximaData ? proximaData.getTime() < Date.now() : false;
 
-  function openDrawer() {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("lead", lead.id);
-    router.push(`/leads?${params.toString()}`, { scroll: false });
-  }
-
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...listeners}
       {...attributes}
-      onClick={openDrawer}
+      onClick={onOpen}
       className={cn(
         "group relative shrink-0 cursor-grab touch-none overflow-hidden rounded-lg bg-card text-sm ring-1 ring-foreground/10 shadow-sm transition-all",
         "hover:-translate-y-0.5 hover:shadow-md hover:ring-foreground/20",

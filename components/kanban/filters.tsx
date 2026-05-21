@@ -13,21 +13,13 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-
-const ALL = "__all__";
 
 const SCORE_PRESETS = [
   { label: "Hot ≥70", value: "70" },
@@ -130,28 +122,23 @@ export function KanbanFilters({ cidades }: { cidades: string[] }) {
           )}
         </div>
 
-        <Select
-          value={cidade || ALL}
+        <Combobox
+          className="w-44"
+          options={[
+            { value: "", label: "Todas as cidades" },
+            ...cidades.map((c) => ({ value: c, label: c })),
+          ]}
+          value={cidade}
           onValueChange={(v) => {
-            const raw = v ?? ALL;
-            const next = raw === ALL ? "" : raw;
-            setCidade(next);
-            applyParams({ cidade: next });
+            setCidade(v);
+            applyParams({ cidade: v });
           }}
-        >
-          <SelectTrigger className="h-9 w-44">
-            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder="Cidade" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Todas as cidades</SelectItem>
-            {cidades.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder="Cidade"
+          searchPlaceholder="Buscar cidade..."
+          emptyMessage="Nenhuma cidade encontrada."
+          icon={<MapPin />}
+          aria-label="Filtrar por cidade"
+        />
 
         <div className="flex items-center gap-1 rounded-md bg-muted/50 p-0.5">
           <span className="hidden items-center gap-1 pl-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground md:flex">
