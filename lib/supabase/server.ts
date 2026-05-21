@@ -23,6 +23,14 @@ export function createClient() {
           }
         },
       },
+      global: {
+        // O CRM sempre lê dado vivo. Sem `no-store`, o Data Cache do Next
+        // serviria leituras desatualizadas — sobretudo porque o n8n escreve
+        // direto no Postgres (enviado_em, transcrição, atividades), por fora
+        // do Next.js, sem nunca disparar revalidatePath.
+        fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+          fetch(input, { ...init, cache: "no-store" }),
+      },
     },
   );
 }
