@@ -233,7 +233,13 @@ export async function fetchLeadDetail(leadId: string): Promise<LeadDetail | null
         })
       | null;
     atividades: LeadDetail["atividades"];
-    clientes_ocultos: LeadDetail["cliente_oculto"][];
+    // lead_id é UNIQUE em clientes_ocultos → PostgREST trata a relação como
+    // 1:1 e devolve um objeto único (não um array). Aceitamos os dois formatos
+    // por robustez, caso a cardinalidade da relação volte a mudar.
+    clientes_ocultos:
+      | LeadDetail["cliente_oculto"]
+      | LeadDetail["cliente_oculto"][]
+      | null;
     tarefas: LeadDetail["tarefas"];
   };
 
@@ -250,8 +256,10 @@ export async function fetchLeadDetail(leadId: string): Promise<LeadDetail | null
 
   const contatosAtivos = (row.clinica?.contatos ?? []).filter((c) => !c.deleted_at);
 
-  const ocultos = row.clientes_ocultos ?? [];
-  const clienteOculto = ocultos.length > 0 ? ocultos[0] : null;
+  // PostgREST devolve clientes_ocultos como objeto único (lead_id é UNIQUE);
+  // o ramo de array é só um fallback defensivo.
+  const co = row.clientes_ocultos;
+  const clienteOculto = Array.isArray(co) ? co[0] ?? null : co ?? null;
 
   return {
     id: row.id,
