@@ -4,7 +4,10 @@
       "mcp__claude_ai_Supabase__list_projects",
       "mcp__claude_ai_Supabase__list_tables",
       "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -Last 40)",
-      "PowerShell(npx next lint 2>&1 | Select-Object -Last 15)"
+      "PowerShell(npx next lint 2>&1 | Select-Object -Last 15)",
+      "Bash(npx next *)",
+      "Bash(powershell *)",
+      "mcp__supabase__execute_sql"
     ]
   },
   "enableAllProjectMcpServers": true,

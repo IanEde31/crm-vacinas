@@ -73,7 +73,11 @@ export function TarefaForm({ leadId, onDone }: { leadId: string; onDone?: () => 
           </Select>
         </div>
       </div>
-      <Button type="submit" disabled={loading} className="w-full">
+      <Button
+        type="submit"
+        disabled={loading}
+        className="w-full transition-all duration-200 ease-out"
+      >
         {loading ? "Salvando..." : "Criar tarefa"}
       </Button>
     </form>

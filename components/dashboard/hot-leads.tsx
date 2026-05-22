@@ -34,15 +34,17 @@ export function HotLeads({ leads }: { leads: Lead[] }) {
   const labelMap = Object.fromEntries(ESTAGIOS.map((e) => [e.id, e.label]));
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Flame className="h-4 w-4 text-amber-500" />
-              Hot leads
-            </CardTitle>
-            <CardDescription>Top 5 por score</CardDescription>
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30">
+              <Flame className="h-4 w-4" />
+            </span>
+            <div>
+              <CardTitle className="text-base">Hot leads</CardTitle>
+              <CardDescription>Top 5 por score</CardDescription>
+            </div>
           </div>
           <Link
             href="/leads?sort=score"
@@ -52,7 +54,7 @@ export function HotLeads({ leads }: { leads: Lead[] }) {
           </Link>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-4">
         {leads.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Nenhum lead quente no momento.

@@ -305,6 +305,55 @@ export async function fetchLeadDetail(leadId: string): Promise<LeadDetail | null
   };
 }
 
+export type ClinicaBusca = {
+  id: string;
+  nome: string;
+  cidade: string | null;
+  estado: string | null;
+  /** A clínica já tem um lead em andamento (não fechado/em nutrição). */
+  tem_lead_ativo: boolean;
+};
+
+const ESTAGIOS_FINAIS_BUSCA: EstagioLead[] = ["ganho", "perdido", "nutricao"];
+
+/**
+ * Busca enxuta de clínicas por nome — insumo do formulário de novo lead.
+ * `tem_lead_ativo` sinaliza duplicação provável: serve só de aviso, não bloqueia
+ * (uma clínica pode legitimamente ganhar um novo lead).
+ */
+export async function buscarClinicas(termo: string): Promise<ClinicaBusca[]> {
+  const needle = termo.trim();
+  if (needle.length < 2) return [];
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("clinicas")
+    .select("id, nome, cidade, estado, leads ( estagio, deleted_at )")
+    .is("deleted_at", null)
+    .ilike("nome", `%${needle}%`)
+    .order("nome", { ascending: true })
+    .limit(8);
+  if (error) throw new Error(error.message);
+
+  type Row = {
+    id: string;
+    nome: string;
+    cidade: string | null;
+    estado: string | null;
+    leads: { estagio: EstagioLead; deleted_at: string | null }[] | null;
+  };
+
+  return ((data ?? []) as Row[]).map((c) => ({
+    id: c.id,
+    nome: c.nome,
+    cidade: c.cidade,
+    estado: c.estado,
+    tem_lead_ativo: (c.leads ?? []).some(
+      (l) => !l.deleted_at && !ESTAGIOS_FINAIS_BUSCA.includes(l.estagio),
+    ),
+  }));
+}
+
 export async function fetchCidadesDistintas(): Promise<string[]> {
   const supabase = createClient();
   const { data } = await supabase

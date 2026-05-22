@@ -51,16 +51,17 @@ function PipelineView({ data, onEdit }: { data: LeadDetail; onEdit: () => void }
   const mrr = (data.valor_estimado * data.probabilidade) / 100;
 
   return (
-    <section>
+    <SectionCard>
       <SectionHeader title="Pipeline" onEdit={onEdit} />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Metric label="Estágio" value={estagioLabel} />
-        <Metric label="Score" value={String(data.score)} />
-        <Metric label="Valor estimado" value={fmtCurrency(data.valor_estimado)} />
-        <Metric label="Probabilidade" value={`${data.probabilidade}%`} />
+        <Metric label="Score" value={String(data.score)} numeric />
+        <Metric label="Valor estimado" value={fmtCurrency(data.valor_estimado)} numeric />
+        <Metric label="Probabilidade" value={`${data.probabilidade}%`} numeric />
       </div>
-      <div className="mt-3 rounded-md bg-muted/40 px-3 py-2 text-sm">
-        MRR projetado: <span className="font-medium">{fmtCurrency(mrr)}</span>
+      <div className="mt-3 flex items-baseline justify-between rounded-md bg-muted/50 px-3 py-2 text-sm">
+        <span className="text-muted-foreground">MRR projetado</span>
+        <span className="font-semibold tabular-nums">{fmtCurrency(mrr)}</span>
       </div>
       {data.qualificacao && (
         <div className="mt-3 text-xs text-muted-foreground">
@@ -70,11 +71,13 @@ function PipelineView({ data, onEdit }: { data: LeadDetail; onEdit: () => void }
         </div>
       )}
       {data.proxima_acao && (
-        <div className="mt-3 rounded-md border-l-4 border-l-primary bg-muted/40 px-3 py-2 text-sm">
-          <div className="text-xs text-muted-foreground">Próxima ação</div>
-          <div>{data.proxima_acao}</div>
+        <div className="mt-3 rounded-md border-l-2 border-l-primary bg-muted/50 px-3 py-2.5 text-sm">
+          <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Próxima ação
+          </div>
+          <div className="mt-0.5">{data.proxima_acao}</div>
           {data.proxima_acao_data && (
-            <div className="text-xs text-muted-foreground">
+            <div className="mt-0.5 text-xs tabular-nums text-muted-foreground">
               {format(new Date(data.proxima_acao_data), "dd MMM yyyy 'às' HH:mm", {
                 locale: ptBR,
               })}
@@ -82,7 +85,7 @@ function PipelineView({ data, onEdit }: { data: LeadDetail; onEdit: () => void }
           )}
         </div>
       )}
-    </section>
+    </SectionCard>
   );
 }
 
@@ -120,7 +123,7 @@ function PipelineEdit({ data, onDone }: { data: LeadDetail; onDone: () => void }
   }
 
   return (
-    <section>
+    <SectionCard>
       <SectionHeader title="Editar pipeline" onCancel={onDone} />
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid grid-cols-3 gap-3">
@@ -206,7 +209,7 @@ function PipelineEdit({ data, onDone }: { data: LeadDetail; onDone: () => void }
           />
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 pt-1">
           <Button type="submit" disabled={loading} className="flex-1">
             {loading ? "Salvando..." : "Salvar"}
           </Button>
@@ -215,6 +218,15 @@ function PipelineEdit({ data, onDone }: { data: LeadDetail; onDone: () => void }
           </Button>
         </div>
       </form>
+    </SectionCard>
+  );
+}
+
+/** Superfície elevada padrão das seções do drawer. */
+function SectionCard({ children }: { children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/10 transition-all duration-200 ease-out hover:ring-foreground/20">
+      {children}
     </section>
   );
 }
@@ -229,8 +241,8 @@ function SectionHeader({
   onCancel?: () => void;
 }) {
   return (
-    <div className="mb-2 flex items-center justify-between">
-      <h3 className="text-sm font-medium">{title}</h3>
+    <div className="mb-3 flex items-center justify-between">
+      <h3 className="font-heading text-sm font-semibold tracking-tight">{title}</h3>
       {onEdit && (
         <Button variant="ghost" size="sm" onClick={onEdit}>
           <Pencil className="mr-1 h-3 w-3" /> Editar
@@ -245,11 +257,28 @@ function SectionHeader({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  numeric,
+}: {
+  label: string;
+  value: string;
+  numeric?: boolean;
+}) {
   return (
-    <div className="rounded-md border bg-background p-2.5">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-sm font-medium">{value}</div>
+    <div className="rounded-md bg-background p-2.5 ring-1 ring-inset ring-foreground/10">
+      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div
+        className={
+          "mt-1 text-sm font-semibold text-foreground" +
+          (numeric ? " tabular-nums" : "")
+        }
+      >
+        {value}
+      </div>
     </div>
   );
 }

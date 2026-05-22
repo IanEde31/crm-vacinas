@@ -120,6 +120,7 @@ Máximo 100. Ordenação padrão do kanban: score DESC, depois updated_at DESC.
 
 - **Antes de gerar código complexo, descreva o plano em 3-5 linhas.** Eu confirmo, você executa.
 - **Uma camada por vez.** Não construa schema + auth + kanban + dashboard de uma vez. Etapa fechada, eu valido, próxima.
+- **Commit ao fechar cada fase validada.** Antes de seguir para a próxima etapa, faça um commit — é checkpoint contra perda e garante base limpa para trabalho paralelo (agentes isolados partem do último commit, não do working tree).
 - **Pergunte quando houver ambiguidade real.** Não pergunte por preferências triviais (cor de botão, ordem de campos) — decida com bom senso e siga.
 - **Não silencie erros.** Se algo não compila, não funciona, ou tem warning relevante, me avise antes de prosseguir.
 - **Migrations são imutáveis depois de aplicadas.** Mudou estrutura? Nova migration. Nunca edite migration antiga.
@@ -128,6 +129,7 @@ Máximo 100. Ordenação padrão do kanban: score DESC, depois updated_at DESC.
 
 - Não criar autenticação custom — Supabase Auth resolve.
 - Não criar componentes UI do zero quando existe equivalente no shadcn/ui.
+- Não usar `render={<Button/>}` em gatilhos do base-ui (`DropdownMenuTrigger`, `DialogTrigger` etc.) — compor dois primitivos base-ui pelo `render` faz o clique não conectar. Estilize o gatilho nativo com `className` + `buttonVariants`, como a Navbar.
 - Não usar Prisma, Drizzle ou qualquer ORM — Supabase client é suficiente e mais direto.
 - Não adicionar dependência sem justificativa. Cada `npm install` é um compromisso.
 - Não criar testes nesta fase. MVP primeiro, testes quando o produto estabilizar.

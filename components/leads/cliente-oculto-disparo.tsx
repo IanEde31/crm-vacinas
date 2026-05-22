@@ -42,11 +42,11 @@ export function ClienteOcultoDisparo({
 
   if (disparoEm) {
     return (
-      <div className="mb-4 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+      <div className="mb-4 flex items-center gap-2.5 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-xs text-emerald-700 ring-1 ring-inset ring-emerald-300/60 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30">
         <CheckCircle2 className="h-4 w-4 shrink-0" />
         <span>
           Abordagem disparada para o n8n em{" "}
-          <span className="font-medium">
+          <span className="font-semibold tabular-nums">
             {format(new Date(disparoEm), "dd MMM yyyy 'às' HH:mm", { locale: ptBR })}
           </span>
         </span>
@@ -55,16 +55,21 @@ export function ClienteOcultoDisparo({
   }
 
   return (
-    <div className="mb-4 space-y-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-      <div className="flex items-start gap-2">
+    <div className="mb-4 space-y-2.5 rounded-xl bg-amber-50 px-3.5 py-3 text-xs text-amber-800 ring-1 ring-inset ring-amber-300/60 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/30">
+      <div className="flex items-start gap-2.5">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-        <p>
+        <p className="leading-relaxed">
           A abordagem de cliente oculto ainda não foi disparada para o n8n —
           isso acontece quando o n8n está indisponível no momento da mudança de
           estágio.
         </p>
       </div>
-      <Button size="sm" onClick={onDisparar} disabled={loading} className="w-full">
+      <Button
+        size="sm"
+        onClick={onDisparar}
+        disabled={loading}
+        className="w-full transition-all duration-200 ease-out"
+      >
         <Send className="mr-1.5 h-3.5 w-3.5" />
         {loading ? "Disparando..." : "Disparar abordagem"}
       </Button>

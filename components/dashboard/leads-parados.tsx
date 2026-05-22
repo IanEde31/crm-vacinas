@@ -28,24 +28,24 @@ export function LeadsParados({
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle
-                className={cn(
-                  "h-4 w-4",
-                  leads.length > 0 ? "text-rose-500" : "text-muted-foreground",
+      <CardHeader className="border-b">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-700 ring-1 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-500/30">
+              <AlertTriangle className="h-4 w-4" />
+            </span>
+            <div>
+              <CardTitle className="text-base">Leads parados +7d</CardTitle>
+              <CardDescription>
+                {leads.length} de {totalAtivos} ativos
+                {leads.length > 0 && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · {pct}% do pipeline
+                  </span>
                 )}
-              />
-              Leads parados há +7d
-            </CardTitle>
-            <CardDescription>
-              {leads.length} de {totalAtivos} ativos
-              {leads.length > 0 && (
-                <span className="text-muted-foreground"> · {pct}% do pipeline</span>
-              )}
-            </CardDescription>
+              </CardDescription>
+            </div>
           </div>
           {leads.length > 5 && (
             <Link
@@ -57,7 +57,7 @@ export function LeadsParados({
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-4">
         {leads.length === 0 ? (
           <div className="rounded-lg border border-dashed py-8 text-center">
             <div className="text-sm font-medium">Todo mundo ativo.</div>

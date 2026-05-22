@@ -4,131 +4,66 @@ import {
   CircleDollarSign,
   Target,
   Activity,
+  ArrowUp,
+  ArrowDown,
   ArrowUpRight,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { isPast, isToday } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Sparkline } from "@/components/dashboard/charts";
+import type { KpiData } from "@/lib/dashboard/metrics";
+import { cn, fmtCurrency, fmtCurrencyCompact } from "@/lib/utils";
 
-function fmtCurrency(n: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
+type Delta = KpiData["inflowDelta"];
 
-function fmtCurrencyCompact(n: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(n);
-}
-
-type Props = {
-  mrrProjetado: number;
-  mrrFechado30d: number;
-  valorPipeline: number;
-  totalAtivos: number;
-  taxaConversao: number;
-  ganhos: number;
-  perdidos: number;
-  atividadesSemana: number;
-  tarefasSemana: number;
-  todayStart: string;
-  tarefas: { prazo: string | null }[];
-};
-
-export function KpiRow({
-  mrrProjetado,
-  mrrFechado30d,
-  valorPipeline,
-  totalAtivos,
-  taxaConversao,
-  ganhos,
-  perdidos,
-  atividadesSemana,
-  tarefasSemana,
-  todayStart,
-  tarefas,
-}: Props) {
-  const tarefasHoje = tarefas.filter(
-    (t) => t.prazo && new Date(t.prazo) >= new Date(todayStart) && isToday(new Date(t.prazo)),
-  ).length;
-  const tarefasVencidas = tarefas.filter(
-    (t) => t.prazo && isPast(new Date(t.prazo)) && !isToday(new Date(t.prazo)),
-  ).length;
-
+export function KpiRow({ kpi }: { kpi: KpiData }) {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <Kpi
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <KpiCard
         href="/leads"
-        icon={<CircleDollarSign className="h-4 w-4" />}
         accent="amber"
-        label="MRR projetado"
-        value={fmtCurrency(mrrProjetado)}
-        sub={
-          <>
-            <span className="font-medium text-foreground">{fmtCurrencyCompact(valorPipeline)}</span>{" "}
-            em pipeline total
-          </>
-        }
+        icon={<CircleDollarSign className="h-4 w-4" />}
+        label="Valor em pipeline"
+        value={fmtCurrencyCompact(kpi.valorPipeline)}
+        sub={`${fmtCurrency(kpi.mrrProjetado)} projetado (ponderado)`}
+        delta={kpi.inflowDelta}
+        deltaHint={`${kpi.inflow30d} leads novos em 30d`}
+        spark={kpi.inflowSpark}
+        sparkColor="#f59e0b"
       />
-      <Kpi
+      <KpiCard
         href="/leads"
-        icon={<TrendingUp className="h-4 w-4" />}
         accent="emerald"
-        label="Pipeline ativo"
-        value={`${totalAtivos}`}
-        sub={
-          <>
-            <span className="font-medium text-foreground">{fmtCurrencyCompact(mrrFechado30d)}</span>{" "}
-            fechados em 30d
-          </>
-        }
+        icon={<TrendingUp className="h-4 w-4" />}
+        label="Receita fechada · 30d"
+        value={fmtCurrencyCompact(kpi.receitaFechada30d)}
+        sub={`${kpi.ganhos30d} ${kpi.ganhos30d === 1 ? "negócio ganho" : "negócios ganhos"}`}
+        delta={kpi.receitaDelta}
+        deltaHint="vs. 30 dias anteriores"
+        spark={kpi.receitaSpark}
+        sparkColor="#10b981"
       />
-      <Kpi
+      <KpiCard
         href="/leads"
+        accent="sky"
         icon={<Target className="h-4 w-4" />}
-        accent={taxaConversao >= 30 ? "emerald" : taxaConversao >= 15 ? "amber" : "rose"}
-        label="Conversão 30d"
-        value={`${taxaConversao}%`}
-        sub={
-          <>
-            <span className="font-medium text-emerald-600 dark:text-emerald-400">{ganhos} ganhos</span>
-            {" · "}
-            <span className="text-muted-foreground">{perdidos} perdidos</span>
-          </>
-        }
-        bar={taxaConversao}
+        label="Conversão · 30d"
+        value={`${kpi.conversao30d}%`}
+        sub={`${kpi.ganhos30d} ganhos · ${kpi.perdidos30d} perdidos`}
+        delta={kpi.conversaoDelta}
+        deltaHint="vs. 30 dias anteriores"
+        spark={kpi.conversaoSpark}
+        sparkColor="#0ea5e9"
       />
-      <Kpi
+      <KpiCard
         href="/tarefas"
+        accent="violet"
         icon={<Activity className="h-4 w-4" />}
-        accent={tarefasVencidas > 0 ? "rose" : "indigo"}
-        label="Esta semana"
-        value={`${atividadesSemana}`}
-        sub={
-          <>
-            <span className="font-medium text-foreground">{tarefasSemana}</span> tarefas
-            {tarefasVencidas > 0 && (
-              <>
-                {" · "}
-                <span className="font-medium text-rose-600 dark:text-rose-400">
-                  {tarefasVencidas} vencidas
-                </span>
-              </>
-            )}
-            {tarefasVencidas === 0 && tarefasHoje > 0 && (
-              <>
-                {" · "}
-                <span className="text-muted-foreground">{tarefasHoje} hoje</span>
-              </>
-            )}
-          </>
-        }
+        label="Ritmo operacional · 7d"
+        value={`${kpi.atividades7d}`}
+        sub="interações registradas"
+        delta={kpi.atividadesDelta}
+        deltaHint="vs. semana anterior"
+        spark={kpi.atividadesSpark}
+        sparkColor="#8b5cf6"
       />
     </div>
   );
@@ -137,75 +72,124 @@ export function KpiRow({
 const ACCENTS = {
   amber: {
     icon: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-    bar: "bg-amber-500",
+    glow: "from-amber-500/[0.07]",
   },
   emerald: {
     icon: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-    bar: "bg-emerald-500",
+    glow: "from-emerald-500/[0.07]",
   },
-  rose: {
-    icon: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-    bar: "bg-rose-500",
+  sky: {
+    icon: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+    glow: "from-sky-500/[0.07]",
   },
-  indigo: {
-    icon: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
-    bar: "bg-indigo-500",
+  violet: {
+    icon: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+    glow: "from-violet-500/[0.07]",
   },
 } as const;
 
-function Kpi({
+function DeltaChip({ delta, hint }: { delta: Delta; hint: string }) {
+  let body: React.ReactNode;
+  if (delta == null) {
+    body = (
+      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+        novo
+      </span>
+    );
+  } else if (delta.dir === "flat") {
+    body = (
+      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground">
+        estável
+      </span>
+    );
+  } else {
+    const up = delta.dir === "up";
+    body = (
+      <span
+        className={cn(
+          "flex items-center gap-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold tabular-nums",
+          up
+            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+            : "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+        )}
+      >
+        {up ? <ArrowUp className="h-2.5 w-2.5" /> : <ArrowDown className="h-2.5 w-2.5" />}
+        {Math.abs(delta.pct)}%
+      </span>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      {body}
+      <span className="hidden text-[10px] text-muted-foreground sm:inline">
+        {hint}
+      </span>
+    </div>
+  );
+}
+
+function KpiCard({
   href,
   icon,
   label,
   value,
   sub,
+  delta,
+  deltaHint,
+  spark,
+  sparkColor,
   accent,
-  bar,
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
   value: string;
-  sub: React.ReactNode;
+  sub: string;
+  delta: Delta;
+  deltaHint: string;
+  spark: number[];
+  sparkColor: string;
   accent: keyof typeof ACCENTS;
-  bar?: number;
 }) {
   const styles = ACCENTS[accent];
   return (
     <Link
       href={href}
-      className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
+      className="group relative block overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:ring-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <Card className="relative h-full transition-all hover:-translate-y-0.5 hover:shadow-md">
-        <CardContent className="pt-1">
-          <div className="flex items-start justify-between">
-            <span
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-lg",
-                styles.icon,
-              )}
-            >
-              {icon}
-            </span>
-            <ArrowUpRight className="h-4 w-4 text-muted-foreground/40 transition-colors group-hover:text-foreground" />
-          </div>
-          <div className="mt-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {label}
-          </div>
-          <div className="mt-1 font-heading text-3xl font-semibold tabular-nums tracking-tight">
-            {value}
-          </div>
-          <div className="mt-1 text-xs text-muted-foreground">{sub}</div>
-          {typeof bar === "number" && (
-            <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted">
-              <div
-                className={cn("h-full rounded-full transition-all", styles.bar)}
-                style={{ width: `${Math.min(100, Math.max(0, bar))}%` }}
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-0 bg-gradient-to-b to-transparent opacity-0 transition-opacity group-hover:opacity-100",
+          styles.glow,
+        )}
+      />
+      <div className="relative p-4 pb-0">
+        <div className="flex items-start justify-between">
+          <span
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-lg",
+              styles.icon,
+            )}
+          >
+            {icon}
+          </span>
+          <ArrowUpRight className="h-4 w-4 text-muted-foreground/30 transition-colors group-hover:text-foreground" />
+        </div>
+        <div className="mt-3 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+          {label}
+        </div>
+        <div className="mt-1 font-heading text-[1.7rem] font-semibold leading-none tabular-nums tracking-tight">
+          {value}
+        </div>
+        <div className="mt-1.5 truncate text-xs text-muted-foreground">{sub}</div>
+        <div className="mt-2.5">
+          <DeltaChip delta={delta} hint={deltaHint} />
+        </div>
+      </div>
+      {/* Sparkline encostada na borda inferior */}
+      <div className="mt-2 h-12">
+        <Sparkline data={spark} color={sparkColor} />
+      </div>
     </Link>
   );
 }

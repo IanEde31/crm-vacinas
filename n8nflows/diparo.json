@@ -116,7 +116,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://SEU_EVOLUTION_HOST/message/sendText/SEU_INSTANCE_NAME",
+        "url": "https://evolution.7bee.top/message/sendText/ian-vacinas",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -143,14 +143,20 @@
         144,
         -32
       ],
-      "notes": "Trocar SEU_EVOLUTION_HOST e SEU_INSTANCE_NAME. A apikey vai na credencial Header Auth."
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "SiHA5EsfziVyjwPr",
+          "name": "evoian"
+        }
+      },
+      "notes": "Instância Evolution: ian-vacinas. A apikey vai na credencial Header Auth 'evoian'."
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "UPDATE clientes_ocultos\nSET enviado_em = NOW()\nWHERE lead_id = $1 AND enviado_em IS NULL;",
+        "query": "UPDATE clientes_ocultos\nSET enviado_em = NOW(),\n    mensagem_enviada = $2,\n    status = 'aguardando_resposta'\nWHERE lead_id = $1 AND enviado_em IS NULL;\nSELECT 1 AS ok;",
         "options": {
-          "queryReplacement": "={{ [$('Sortear variação').item.json.lead_id] }}"
+          "queryReplacement": "={{ [$('Sortear variação').item.json.lead_id, $('Sortear variação').item.json.mensagem] }}"
         }
       },
       "id": "39dca822-82d4-4c68-aafa-1443d264cc2d",
@@ -161,7 +167,7 @@
         368,
         -32
       ],
-      "notes": "Só enviado_em. disparo_em é gravado pelo CRM; não tocar aqui."
+      "notes": "Grava enviado_em + mensagem_enviada (o agente.json remonta o histórico a partir dela) + status. disparo_em é gravado pelo CRM; não tocar aqui."
     },
     {
       "parameters": {

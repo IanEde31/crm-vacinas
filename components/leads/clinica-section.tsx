@@ -26,10 +26,10 @@ export function ClinicaSection({ clinica }: { clinica: Clinica | null }) {
 
   if (!clinica) {
     return (
-      <section>
+      <SectionCard>
         <Header title="Clínica" />
         <p className="text-sm text-muted-foreground">Sem clínica associada.</p>
-      </section>
+      </SectionCard>
     );
   }
 
@@ -42,15 +42,23 @@ export function ClinicaSection({ clinica }: { clinica: Clinica | null }) {
 
 function ClinicaView({ clinica, onEdit }: { clinica: Clinica; onEdit: () => void }) {
   return (
-    <section>
+    <SectionCard>
       <Header title="Clínica" onEdit={onEdit} />
-      <div className="space-y-2 text-sm">
-        <div className="text-base font-medium">{clinica.nome}</div>
-        {clinica.razao_social && (
-          <div className="text-xs text-muted-foreground">{clinica.razao_social}</div>
-        )}
+      <div className="space-y-2.5 text-sm">
+        <div>
+          <div className="font-heading text-base font-semibold tracking-tight">
+            {clinica.nome}
+          </div>
+          {clinica.razao_social && (
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              {clinica.razao_social}
+            </div>
+          )}
+        </div>
         {clinica.cnpj && (
-          <Row icon={FileText}>CNPJ: {clinica.cnpj}</Row>
+          <Row icon={FileText}>
+            <span className="tabular-nums">CNPJ: {clinica.cnpj}</span>
+          </Row>
         )}
         {(clinica.endereco || clinica.cidade) && (
           <Row icon={MapPin}>
@@ -59,14 +67,18 @@ function ClinicaView({ clinica, onEdit }: { clinica: Clinica; onEdit: () => void
               .join(", ")}
           </Row>
         )}
-        {clinica.telefone && <Row icon={Phone}>{clinica.telefone}</Row>}
+        {clinica.telefone && (
+          <Row icon={Phone}>
+            <span className="tabular-nums">{clinica.telefone}</span>
+          </Row>
+        )}
         {clinica.website && (
           <Row icon={Globe}>
             <a
               href={clinica.website}
               target="_blank"
               rel="noreferrer"
-              className="underline"
+              className="text-foreground underline decoration-foreground/30 underline-offset-2 transition-colors hover:decoration-foreground"
             >
               {clinica.website}
             </a>
@@ -74,16 +86,20 @@ function ClinicaView({ clinica, onEdit }: { clinica: Clinica; onEdit: () => void
         )}
         {clinica.rating !== null && (
           <Row icon={Star}>
-            {clinica.rating} · {clinica.total_reviews ?? 0} avaliações
+            <span className="tabular-nums">
+              {clinica.rating} · {clinica.total_reviews ?? 0} avaliações
+            </span>
           </Row>
         )}
         {clinica.porte_estimado && (
-          <Badge variant="secondary" className="text-[10px]">
-            Porte: {clinica.porte_estimado}
-          </Badge>
+          <div className="pt-0.5">
+            <Badge variant="secondary" className="rounded-md text-[10px]">
+              Porte: {clinica.porte_estimado}
+            </Badge>
+          </div>
         )}
       </div>
-    </section>
+    </SectionCard>
   );
 }
 
@@ -125,7 +141,7 @@ function ClinicaEdit({ clinica, onDone }: { clinica: Clinica; onDone: () => void
   }
 
   return (
-    <section>
+    <SectionCard>
       <Header title="Editar clínica" onCancel={onDone} />
       <form onSubmit={onSubmit} className="space-y-3">
         <Field label="Nome" required>
@@ -200,7 +216,7 @@ function ClinicaEdit({ clinica, onDone }: { clinica: Clinica; onDone: () => void
             </Select>
           </Field>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 pt-1">
           <Button type="submit" disabled={loading} className="flex-1">
             {loading ? "Salvando..." : "Salvar"}
           </Button>
@@ -209,6 +225,15 @@ function ClinicaEdit({ clinica, onDone }: { clinica: Clinica; onDone: () => void
           </Button>
         </div>
       </form>
+    </SectionCard>
+  );
+}
+
+/** Superfície elevada padrão das seções do drawer. */
+function SectionCard({ children }: { children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/10 transition-all duration-200 ease-out hover:ring-foreground/20">
+      {children}
     </section>
   );
 }
@@ -223,8 +248,8 @@ function Header({
   onCancel?: () => void;
 }) {
   return (
-    <div className="mb-2 flex items-center justify-between">
-      <h3 className="text-sm font-medium">{title}</h3>
+    <div className="mb-3 flex items-center justify-between">
+      <h3 className="font-heading text-sm font-semibold tracking-tight">{title}</h3>
       {onEdit && (
         <Button variant="ghost" size="sm" onClick={onEdit}>
           <Pencil className="mr-1 h-3 w-3" /> Editar
@@ -267,9 +292,9 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 text-muted-foreground">
-      <Icon className="h-3.5 w-3.5" />
-      <span>{children}</span>
+    <div className="flex items-center gap-2.5 text-muted-foreground">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+      <span className="min-w-0 break-words">{children}</span>
     </div>
   );
 }

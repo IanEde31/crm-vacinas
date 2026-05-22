@@ -34,9 +34,14 @@ export function ContatosSection({
   const [editingId, setEditingId] = useState<string | null>(null);
 
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-medium">Contatos ({contatos.length})</h3>
+    <section className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/10 transition-all duration-200 ease-out hover:ring-foreground/20">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="font-heading text-sm font-semibold tracking-tight">
+          Contatos{" "}
+          <span className="font-normal tabular-nums text-muted-foreground">
+            ({contatos.length})
+          </span>
+        </h3>
         {!adding && !editingId && (
           <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>
             <Plus className="mr-1 h-3 w-3" /> Novo
@@ -45,7 +50,7 @@ export function ContatosSection({
       </div>
 
       {adding && (
-        <div className="mb-3 rounded-md border bg-background p-3">
+        <div className="mb-3 rounded-lg bg-background p-3 ring-1 ring-inset ring-foreground/10 animate-in fade-in-0 zoom-in-95 duration-200">
           <ContatoForm
             clinicaId={clinicaId}
             onDone={() => setAdding(false)}
@@ -59,7 +64,10 @@ export function ContatosSection({
         <ul className="space-y-2">
           {contatos.map((c) =>
             editingId === c.id ? (
-              <li key={c.id} className="rounded-md border bg-background p-3">
+              <li
+                key={c.id}
+                className="rounded-lg bg-background p-3 ring-1 ring-inset ring-foreground/10"
+              >
                 <ContatoForm
                   clinicaId={clinicaId}
                   existing={c}
@@ -104,38 +112,43 @@ function ContatoView({
   }
 
   return (
-    <li className="rounded-md border bg-background p-3 text-sm">
+    <li className="group/item rounded-lg bg-background p-3 text-sm ring-1 ring-inset ring-foreground/10 transition-all duration-200 ease-out hover:ring-foreground/20">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Link
               href={`/contatos?id=${contato.id}`}
-              className="group/contato inline-flex items-center gap-1 font-medium hover:text-primary"
+              className="group/contato inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
               title="Abrir na página de contatos"
             >
               {contato.nome ?? "(sem nome)"}
               <ArrowUpRight className="h-3 w-3 opacity-0 transition-opacity group-hover/contato:opacity-100" />
             </Link>
-            {contato.cargo && <Badge variant="secondary">{contato.cargo}</Badge>}
-            {contato.is_decisor && <Badge>Decisor</Badge>}
+            {contato.cargo && (
+              <Badge variant="secondary" className="rounded-md">
+                {contato.cargo}
+              </Badge>
+            )}
+            {contato.is_decisor && <Badge className="rounded-md">Decisor</Badge>}
           </div>
-          <div className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
+          <div className="mt-1.5 flex flex-col gap-1 text-xs text-muted-foreground">
             {contato.telefone && (
               <span className="flex items-center gap-1.5">
-                <Phone className="h-3 w-3" /> {contato.telefone}
+                <Phone className="h-3 w-3 text-muted-foreground/70" />
+                <span className="tabular-nums">{contato.telefone}</span>
               </span>
             )}
             {contato.email && (
               <span className="flex items-center gap-1.5">
-                <Mail className="h-3 w-3" /> {contato.email}
+                <Mail className="h-3 w-3 text-muted-foreground/70" /> {contato.email}
               </span>
             )}
           </div>
           {contato.observacoes && (
-            <p className="mt-1 text-xs text-muted-foreground">{contato.observacoes}</p>
+            <p className="mt-1.5 text-xs text-muted-foreground">{contato.observacoes}</p>
           )}
         </div>
-        <div className="flex shrink-0 gap-1">
+        <div className="flex shrink-0 gap-1 opacity-60 transition-opacity duration-200 group-hover/item:opacity-100">
           <Button variant="ghost" size="icon-xs" onClick={onEdit} aria-label="Editar">
             <Pencil className="h-3 w-3" />
           </Button>
@@ -145,6 +158,7 @@ function ContatoView({
             onClick={onDelete}
             disabled={removing}
             aria-label="Remover"
+            className="hover:text-destructive"
           >
             <Trash2 className="h-3 w-3" />
           </Button>
@@ -201,7 +215,7 @@ function ContatoForm({
   return (
     <form onSubmit={onSubmit} className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium">
+        <span className="font-heading text-sm font-semibold tracking-tight">
           {existing ? "Editar contato" : "Novo contato"}
         </span>
         <Button type="button" variant="ghost" size="icon-xs" onClick={onDone}>
@@ -252,7 +266,7 @@ function ContatoForm({
           />
         </div>
       </div>
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex w-fit cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm transition-colors hover:bg-muted/60">
         <Checkbox
           checked={isDecisor}
           onCheckedChange={(v) => setIsDecisor(v === true)}

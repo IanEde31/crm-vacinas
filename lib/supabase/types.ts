@@ -30,6 +30,17 @@ export type TipoAtividade =
 export type ResultadoAtividade = "sucesso" | "sem_resposta" | "reagendado" | "objecao";
 export type PrioridadeTarefa = "baixa" | "media" | "alta";
 export type StatusBusca = "running" | "processing" | "concluida" | "falhou";
+export type StatusClienteOculto =
+  | "aguardando_resposta"
+  | "em_conversa"
+  | "encerrado"
+  | "desistido";
+export type MotivoEncerramento =
+  | "objetivos_cobertos"
+  | "limite_turnos"
+  | "limite_turnos_forcado"
+  | "clinica_desistiu"
+  | "desconfianca";
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
@@ -105,6 +116,13 @@ type ClientesOcultosRow = {
   conseguiu_preco: boolean | null;
   observacoes: string | null;
   transcricao: string | null;
+  status: StatusClienteOculto | null;
+  mensagem_enviada: string | null;
+  motivo_encerramento: MotivoEncerramento | null;
+  encerrado_em: string | null;
+  analise_estruturada: Json | null;
+  ultima_msg_id: string | null;
+  lid: string | null;
   created_at: string;
 };
 
@@ -234,6 +252,13 @@ export type Database = {
         | "conseguiu_preco"
         | "observacoes"
         | "transcricao"
+        | "status"
+        | "mensagem_enviada"
+        | "motivo_encerramento"
+        | "encerrado_em"
+        | "analise_estruturada"
+        | "ultima_msg_id"
+        | "lid"
         | "created_at"
       >;
       atividades: TableShape<

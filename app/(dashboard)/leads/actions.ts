@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { ESTAGIO_IDS } from "@/lib/estagios";
-import { fetchLeadDetail, type LeadDetail } from "@/lib/leads/queries";
+import {
+  buscarClinicas,
+  fetchLeadDetail,
+  type ClinicaBusca,
+  type LeadDetail,
+} from "@/lib/leads/queries";
+import { calcularScore, type ScoreClinica } from "@/lib/scoring";
 import { dispararClienteOculto } from "@/lib/n8n/cliente-oculto";
 
 type ActionResult = { ok: true } | { error: string };
@@ -480,4 +486,180 @@ export async function fetchLeadDetailAction(
   } catch {
     return null;
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  CRUD do lead — criação e exclusão (soft delete)                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Busca clínicas por nome para o formulário de novo lead.
+ * Server Action de leitura — falha silenciosamente para uma lista vazia, já que
+ * é chamada a cada tecla digitada.
+ */
+export async function buscarClinicasParaLead(termo: string): Promise<ClinicaBusca[]> {
+  if (typeof termo !== "string") return [];
+  try {
+    return await buscarClinicas(termo);
+  } catch {
+    return [];
+  }
+}
+
+const clinicaNovaSchema = z.object({
+  nome: z.string().trim().min(1, "Nome da clínica é obrigatório").max(200),
+  cidade: z.string().trim().max(100).optional(),
+  estado: z.string().trim().max(50).optional(),
+  telefone: z.string().trim().max(50).optional(),
+  whatsapp: z.string().trim().max(50).optional(),
+  endereco: z.string().trim().max(500).optional(),
+  cnpj: z.string().trim().max(20).optional(),
+  website: z.string().trim().max(500).optional(),
+});
+
+const createLeadSchema = z
+  .object({
+    // Modo 1: vincular a uma clínica existente.
+    clinica_id: z.string().uuid().optional().nullable(),
+    // Modo 2: cadastrar uma clínica nova junto.
+    clinica_nova: clinicaNovaSchema.optional().nullable(),
+    // Campos do lead.
+    estagio: z.enum(ESTAGIO_IDS).default("lead_bruto"),
+    origem: z.enum(["apify", "indicacao", "inbound"]).optional().nullable(),
+    origem_detalhe: z.string().trim().max(200).optional(),
+    valor_estimado: z.coerce.number().min(0).default(2300),
+  })
+  .refine((d) => !!d.clinica_id || !!d.clinica_nova, {
+    message: "Selecione uma clínica existente ou cadastre uma nova",
+  });
+
+export type CreateLeadInput = z.input<typeof createLeadSchema>;
+
+type CreateLeadResult = { ok: true; leadId: string } | { error: string };
+
+/**
+ * Cria um lead manual (indicação/inbound). Resolve a clínica primeiro — usa uma
+ * existente ou cadastra uma nova — e só então insere o lead, com o score
+ * inicial calculado a partir dos dados da clínica.
+ */
+export async function createLead(input: CreateLeadInput): Promise<CreateLeadResult> {
+  const parsed = createLeadSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" };
+  }
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let clinicaId = parsed.data.clinica_id ?? null;
+  let scoreClinica: ScoreClinica;
+
+  if (clinicaId) {
+    const { data: cli, error } = await supabase
+      .from("clinicas")
+      .select("whatsapp, rating, total_reviews, cidade, estado")
+      .eq("id", clinicaId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (error) return { error: error.message };
+    if (!cli) return { error: "Clínica não encontrada." };
+    scoreClinica = cli;
+  } else {
+    const nova = parsed.data.clinica_nova!;
+    // Conflito de CNPJ único: avisa de forma amigável antes de tentar inserir.
+    if (nova.cnpj) {
+      const { data: existente } = await supabase
+        .from("clinicas")
+        .select("id")
+        .eq("cnpj", nova.cnpj)
+        .maybeSingle();
+      if (existente) {
+        return { error: "Já existe uma clínica cadastrada com este CNPJ." };
+      }
+    }
+    const { data: inserted, error } = await supabase
+      .from("clinicas")
+      .insert({
+        nome: nova.nome,
+        cidade: nova.cidade || null,
+        estado: nova.estado || null,
+        telefone: nova.telefone || null,
+        whatsapp: nova.whatsapp || null,
+        endereco: nova.endereco || null,
+        cnpj: nova.cnpj || null,
+        website: nova.website || null,
+        fonte: "manual",
+      })
+      .select("id, whatsapp, rating, total_reviews, cidade, estado")
+      .single();
+    if (error) {
+      if (error.code === "23505") {
+        return { error: "Já existe uma clínica cadastrada com este CNPJ." };
+      }
+      return { error: error.message };
+    }
+    clinicaId = inserted.id;
+    scoreClinica = inserted;
+  }
+
+  const score = calcularScore(scoreClinica, []);
+
+  const { data: leadInserted, error: leadErr } = await supabase
+    .from("leads")
+    .insert({
+      clinica_id: clinicaId,
+      estagio: parsed.data.estagio,
+      origem: parsed.data.origem ?? null,
+      origem_detalhe: parsed.data.origem_detalhe || null,
+      valor_estimado: parsed.data.valor_estimado,
+      score,
+      owner_id: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+  if (leadErr) return { error: leadErr.message };
+
+  revalidatePath("/leads");
+  revalidatePath("/");
+  return { ok: true, leadId: leadInserted.id };
+}
+
+/**
+ * Exclui um lead (soft delete) — preenche `deleted_at`. As queries da página já
+ * filtram `deleted_at IS NULL`, então o lead some do kanban mas o dado é
+ * preservado. Reversível por `restoreLead`.
+ */
+export async function softDeleteLead(leadId: string): Promise<ActionResult> {
+  const parsed = z.string().uuid().safeParse(leadId);
+  if (!parsed.success) return { error: "Lead inválido" };
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("leads")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", parsed.data);
+
+  if (error) return { error: error.message };
+  revalidatePath("/leads");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/** Restaura um lead excluído — usado pelo "Desfazer" do toast de exclusão. */
+export async function restoreLead(leadId: string): Promise<ActionResult> {
+  const parsed = z.string().uuid().safeParse(leadId);
+  if (!parsed.success) return { error: "Lead inválido" };
+
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("leads")
+    .update({ deleted_at: null })
+    .eq("id", parsed.data);
+
+  if (error) return { error: error.message };
+  revalidatePath("/leads");
+  revalidatePath("/");
+  return { ok: true };
 }

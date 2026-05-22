@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -17,11 +18,17 @@ import type { KanbanLead as LeadKanban } from "@/lib/leads/queries";
 import { KanbanColumn } from "./column";
 import { LeadCard } from "./card";
 import { LeadDrawer } from "@/components/leads/drawer";
-import { updateLeadEstagio } from "@/app/(dashboard)/leads/actions";
+import {
+  restoreLead,
+  softDeleteLead,
+  updateLeadEstagio,
+} from "@/app/(dashboard)/leads/actions";
+import { onOpenLeadDrawer } from "@/lib/leads/lead-drawer-bus";
 
 export type { KanbanLead as LeadKanban } from "@/lib/leads/queries";
 
 export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
+  const router = useRouter();
   const [leads, setLeads] = useState<LeadKanban[]>(initialLeads);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
@@ -34,6 +41,9 @@ export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
     setLeads(initialLeads);
     setRefreshTick((t) => t + 1);
   }, [initialLeads]);
+
+  // Abre o drawer a pedido de fora do board (ex.: criação de lead pelo header).
+  useEffect(() => onOpenLeadDrawer((id) => setSelectedLeadId(id)), []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -77,6 +87,46 @@ export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
     }
   }
 
+  // Exclusão (soft delete) com "Desfazer". O card sai na hora; o registro só é
+  // marcado como excluído no banco. Falha do servidor recoloca o card.
+  async function handleDeleteLead(leadId: string) {
+    const lead = leads.find((l) => l.id === leadId);
+    if (!lead) return;
+
+    setSelectedLeadId(null);
+    setLeads((prev) => prev.filter((l) => l.id !== leadId));
+
+    const recolocar = () =>
+      setLeads((prev) =>
+        prev.some((l) => l.id === leadId) ? prev : [...prev, lead],
+      );
+
+    const res = await softDeleteLead(leadId);
+    if ("error" in res) {
+      recolocar();
+      toast.error(res.error);
+      return;
+    }
+
+    toast.success("Lead excluído", {
+      duration: 6000,
+      action: {
+        label: "Desfazer",
+        onClick: async () => {
+          const undo = await restoreLead(leadId);
+          if ("error" in undo) {
+            toast.error(undo.error);
+            return;
+          }
+          recolocar();
+          toast.success("Exclusão desfeita");
+          // Reconcilia a ordem do card na coluna com a do servidor.
+          router.refresh();
+        },
+      },
+    });
+  }
+
   const leadsByEstagio = ESTAGIOS.reduce<Record<EstagioLead, LeadKanban[]>>(
     (acc, { id }) => {
       acc[id] = leads.filter((l) => l.estagio === id);
@@ -90,7 +140,7 @@ export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
   return (
     <>
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex min-h-0 min-w-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden pb-2">
+        <div className="scrollbar-discreet flex min-h-0 min-w-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden pb-3">
           {ESTAGIOS.map(({ id, label }) => (
             <KanbanColumn
               key={id}
@@ -98,11 +148,16 @@ export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
               label={label}
               leads={leadsByEstagio[id]}
               onOpenLead={setSelectedLeadId}
+              onDeleteLead={handleDeleteLead}
             />
           ))}
         </div>
         <DragOverlay dropAnimation={null}>
-          {activeLead ? <LeadCard lead={activeLead} dragging /> : null}
+          {activeLead ? (
+            <div className="w-72 cursor-grabbing">
+              <LeadCard lead={activeLead} dragging />
+            </div>
+          ) : null}
         </DragOverlay>
       </DndContext>
 
@@ -110,6 +165,7 @@ export function KanbanBoard({ initialLeads }: { initialLeads: LeadKanban[] }) {
         leadId={selectedLeadId}
         refreshTick={refreshTick}
         onClose={() => setSelectedLeadId(null)}
+        onDeleted={handleDeleteLead}
       />
     </>
   );

@@ -80,24 +80,26 @@ export function TarefasUpcoming({
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <CheckSquare className="h-4 w-4 text-muted-foreground" />
-              Tarefas da semana
-            </CardTitle>
-            <CardDescription>
-              {tarefas.length} no total · {hoje.length} hoje
-              {vencidas.length > 0 && (
-                <>
-                  {" · "}
-                  <span className="text-rose-600 dark:text-rose-400">
-                    {vencidas.length} vencidas
-                  </span>
-                </>
-              )}
-            </CardDescription>
+      <CardHeader className="border-b">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30">
+              <CheckSquare className="h-4 w-4" />
+            </span>
+            <div>
+              <CardTitle className="text-base">Tarefas da semana</CardTitle>
+              <CardDescription>
+                {tarefas.length} no total · {hoje.length} hoje
+                {vencidas.length > 0 && (
+                  <>
+                    {" · "}
+                    <span className="text-rose-600 dark:text-rose-400">
+                      {vencidas.length} vencidas
+                    </span>
+                  </>
+                )}
+              </CardDescription>
+            </div>
           </div>
           <Link
             href="/tarefas"
@@ -107,7 +109,7 @@ export function TarefasUpcoming({
           </Link>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-4">
         {tarefas.length === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">
             Você está em dia. Nada pendente até o fim da semana.

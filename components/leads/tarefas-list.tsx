@@ -23,16 +23,23 @@ export function TarefasList({ data }: { data: LeadDetail }) {
     router.refresh();
   }
 
+  const pendentes = data.tarefas.filter((t) => !t.concluida).length;
+
   return (
-    <div className="space-y-6">
-      <section>
-        <h3 className="mb-3 text-sm font-medium">Nova tarefa</h3>
+    <div className="space-y-5">
+      <section className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/10">
+        <h3 className="font-heading mb-3 text-sm font-semibold tracking-tight">
+          Nova tarefa
+        </h3>
         <TarefaForm leadId={data.id} />
       </section>
 
-      <section>
-        <h3 className="mb-3 text-sm font-medium">
-          Tarefas ({data.tarefas.filter((t) => !t.concluida).length} pendentes)
+      <section className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/10">
+        <h3 className="font-heading mb-3 text-sm font-semibold tracking-tight">
+          Tarefas{" "}
+          <span className="font-normal tabular-nums text-muted-foreground">
+            ({pendentes} pendentes)
+          </span>
         </h3>
         {data.tarefas.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nenhuma tarefa.</p>
@@ -45,8 +52,8 @@ export function TarefasList({ data }: { data: LeadDetail }) {
                 <li
                   key={t.id}
                   className={cn(
-                    "flex items-start gap-3 rounded-md border bg-background p-3",
-                    t.concluida && "opacity-60",
+                    "flex items-start gap-3 rounded-lg bg-background p-3 ring-1 ring-inset ring-foreground/10 transition-all duration-200 ease-out hover:ring-foreground/20",
+                    t.concluida && "opacity-55",
                   )}
                 >
                   <Checkbox
@@ -55,7 +62,7 @@ export function TarefasList({ data }: { data: LeadDetail }) {
                     onCheckedChange={(v) => onToggle(t.id, v === true)}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span
                         className={cn(
                           "text-sm font-medium",
@@ -72,7 +79,7 @@ export function TarefasList({ data }: { data: LeadDetail }) {
                               ? "default"
                               : "secondary"
                         }
-                        className="text-[10px]"
+                        className="rounded-md text-[10px] capitalize"
                       >
                         {t.prioridade}
                       </Badge>
@@ -83,8 +90,10 @@ export function TarefasList({ data }: { data: LeadDetail }) {
                     {prazo && (
                       <div
                         className={cn(
-                          "mt-1 text-xs",
-                          overdue ? "text-destructive" : "text-muted-foreground",
+                          "mt-1 text-xs tabular-nums",
+                          overdue
+                            ? "font-medium text-destructive"
+                            : "text-muted-foreground",
                         )}
                       >
                         Prazo:{" "}

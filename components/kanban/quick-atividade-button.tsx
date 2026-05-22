@@ -26,7 +26,7 @@ export function QuickAtividadeButton({
       <Button
         variant="ghost"
         size="icon-xs"
-        className="h-5 w-5"
+        className="h-6 w-6 text-muted-foreground transition-colors duration-200 ease-out hover:text-foreground"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => {
           e.stopPropagation();
@@ -35,7 +35,7 @@ export function QuickAtividadeButton({
         aria-label="Nova atividade"
         title="Nova atividade"
       >
-        <Plus className="h-3 w-3" />
+        <Plus className="h-3.5 w-3.5" />
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

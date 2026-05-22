@@ -76,7 +76,13 @@ export function ClienteOcultoForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form
+      onSubmit={onSubmit}
+      className="space-y-4 rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/10"
+    >
+      <h3 className="font-heading text-sm font-semibold tracking-tight">
+        Diagnóstico de cliente oculto
+      </h3>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="enviado_em">Enviado em</Label>
@@ -99,37 +105,37 @@ export function ClienteOcultoForm({
       </div>
 
       {existing?.tempo_resposta_minutos !== null && existing?.tempo_resposta_minutos !== undefined && (
-        <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          Tempo de resposta calculado:{" "}
-          <span className="font-medium text-foreground">
+        <div className="flex items-baseline justify-between rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          <span>Tempo de resposta calculado</span>
+          <span className="font-semibold tabular-nums text-foreground">
             {existing.tempo_resposta_minutos} min
           </span>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <label className="flex items-center gap-2 text-sm">
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/60">
           <Checkbox
             checked={respondeu}
             onCheckedChange={(v) => setRespondeu(v === true)}
           />
           Respondeu
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/60">
           <Checkbox
             checked={tentouAgendar}
             onCheckedChange={(v) => setTentouAgendar(v === true)}
           />
           Tentou agendar
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/60">
           <Checkbox
             checked={fezFollowup}
             onCheckedChange={(v) => setFezFollowup(v === true)}
           />
           Fez follow-up
         </label>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1.5 text-sm transition-colors hover:bg-muted/60">
           <Checkbox
             checked={conseguiuPreco}
             onCheckedChange={(v) => setConseguiuPreco(v === true)}

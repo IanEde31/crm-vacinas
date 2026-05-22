@@ -132,7 +132,11 @@ export function AtividadeForm({
         <Label htmlFor="proxima_acao">Próxima ação</Label>
         <Input id="proxima_acao" name="proxima_acao" placeholder="Ex: Ligar de volta amanhã" />
       </div>
-      <Button type="submit" disabled={loading} className="w-full">
+      <Button
+        type="submit"
+        disabled={loading}
+        className="w-full transition-all duration-200 ease-out"
+      >
         {loading ? "Salvando..." : "Registrar atividade"}
       </Button>
     </form>
