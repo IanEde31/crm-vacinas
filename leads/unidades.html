@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Unidades Saúde Livre Vacinas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f5f7fa;
+    color: #1a202c;
+    padding: 32px 24px;
+    line-height: 1.5;
+  }
+  header {
+    max-width: 1200px;
+    margin: 0 auto 24px;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    color: #64748b;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  input[type="search"] {
+    flex: 1;
+    min-width: 240px;
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input[type="search"]:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.15);
+  }
+  select {
+    padding: 10px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+    cursor: pointer;
+  }
+  .stats {
+    padding: 10px 14px;
+    background: #eff6ff;
+    color: #1e40af;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .grid {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    transition: all .15s;
+  }
+  .card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(0,0,0,.06);
+    transform: translateY(-1px);
+  }
+  .info { min-width: 0; flex: 1; }
+  .nome {
+    font-weight: 600;
+    font-size: 14px;
+    color: #0f172a;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .uf {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    background: #3b82f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 6px;
+  }
+  .telefone {
+    font-size: 13px;
+    color: #475569;
+    font-variant-numeric: tabular-nums;
+  }
+  .whatsapp {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #25d366;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    text-decoration: none;
+    font-size: 18px;
+    transition: background .15s;
+    flex-shrink: 0;
+  }
+  .whatsapp:hover { background: #1da851; }
+  .empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 40px;
+    color: #94a3b8;
+  }
+  @media (max-width: 600px) {
+    body { padding: 16px 12px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Unidades Saúde Livre Vacinas</h1>
+  <p class="subtitle">142 unidades cadastradas — filtre por nome, cidade ou estado</p>
+  <div class="controls">
+    <input type="search" id="busca" placeholder="Buscar unidade ou estado (ex: SP, Goiânia)...">
+    <select id="filtroUf">
+      <option value="">Todos os estados</option>
+    </select>
+    <span class="stats" id="contador">142 unidades</span>
+  </div>
+</header>
+<main class="grid" id="grid"></main>
+
+<script>
+const unidades = [
+  ["Água Boa","MT","5566984530630"],
+  ["Alagoinhas","BA","5575999201322"],
+  ["Alta Floresta","MT","5566996898113"],
+  ["Alto da Glória Goiânia","GO","5562999208384"],
+  ["Amambai","MS","5567993055018"],
+  ["Anápolis","GO","556237720566"],
+  ["Aparecida de Goiânia","GO","5562996131458"],
+  ["Aracajú Inácio Barbosa","SE","5579981049146"],
+  ["Araguaína","TO","5563992535361"],
+  ["Araguari","MG","553434351777"],
+  ["Aripuanã","MT","5566981110271"],
+  ["Asa Norte Brasília","DF","5561999347573"],
+  ["Asa Sul Brasília","DF","5561996961168"],
+  ["Assis Chateaubriand","PR","5544998976398"],
+  ["Balneário Camboriú","SC","5547992064065"],
+  ["Barra da Tijuca","RJ","5521975505972"],
+  ["Barra do Garças","MT","5566992014004"],
+  ["Barretos","SP","5517996228338"],
+  ["Bauru Centro","SP","5514998331166"],
+  ["Bebedouro","SP","5517991882279"],
+  ["Belém","PA","5591993591919"],
+  ["Boa Vista","RR","5595984269099"],
+  ["Botafogo Rio de Janeiro","RJ","5521967539445"],
+  ["Brasília Águas Claras","DF","5561994623994"],
+  ["Brasília Guará","DF","5561998853288"],
+  ["Brasília Sudoeste","DF","5561981910459"],
+  ["Brusque","SC","5547992688407"],
+  ["Caicó","RN","5584997056363"],
+  ["Campinas","SP","5519989005454"],
+  ["Campo Belo São Paulo","SP","5511963347048"],
+  ["Campo Largo","PR","5541992587172"],
+  ["Campo Mourão","PR","5544991611461"],
+  ["Campo Novo do Parecis","MT","5565995531789"],
+  ["Canaã dos Carajás","PA","5594992327761"],
+  ["Canarana","MT","5566996071985"],
+  ["Caraguatatuba","SP","5512998836813"],
+  ["Carlos Barbosa","RS","5554996553840"],
+  ["Cascavel","PR","5545991090099"],
+  ["Ceilândia","DF","5561993740891"],
+  ["Centro Campo Grande","MS","5567996795808"],
+  ["Cianorte","PR","5544991342610"],
+  ["Copacabana","RJ","5521997349846"],
+  ["Cornélio Procópio","PR","554335235833"],
+  ["Cruzeiro do Sul","AC","5568999219956"],
+  ["Cuiabá Aclimação","MT","5565996427484"],
+  ["Curitiba Batel","PR","554123911043"],
+  ["Divinópolis","MG","5537991360314"],
+  ["Dois Vizinhos","PR","5546991041919"],
+  ["Feira de Santana","BA","5575999236868"],
+  ["Floriano","PI","5589999204160"],
+  ["Florianópolis Centro","SC","5548991895758"],
+  ["Florianópolis Santa Mônica","SC","5548988047160"],
+  ["Formiga","MG","553734430547"],
+  ["Formosa","GO","5561998005111"],
+  ["Franca","SP","5516996081140"],
+  ["Guaíra","PR","5544997273232"],
+  ["Guarantã do Norte","MT","5566996085268"],
+  ["Guaratinguetá","SP","5512996361102"],
+  ["Guarulhos São Paulo","SP","5511911896720"],
+  ["Indaial","SC","5547996977787"],
+  ["Iporá","GO","5564999453933"],
+  ["Irecê","BA","5574999055049"],
+  ["Itaim Bibi","SP","5511945361994"],
+  ["Itaituba","PA","5593991937128"],
+  ["Itapema","SC","554720334710"],
+  ["Itapetininga","SP","5515992828781"],
+  ["Itapevi","SP","5511991933310"],
+  ["Itapoá","SC","5547992002324"],
+  ["Itaúna","MG","5537999162883"],
+  ["Jaboticabal","SP","551632029124"],
+  ["Jaciara","MT","5566999763837"],
+  ["Jaguariúna","SP","5519981476742"],
+  ["Jatiúca Maceió","AL","5582982051551"],
+  ["João Pessoa","PB","5583981022512"],
+  ["Joinville América","SC","5547988977377"],
+  ["Juína","MT","556635662351"],
+  ["Jundiaí","SP","5511994295673"],
+  ["Lages","SC","554920500517"],
+  ["Limeira Vila Claudia","SP","5519997229022"],
+  ["Lucas do Rio Verde","MT","5565984592294"],
+  ["Luis Eduardo Magalhães","BA","5577999102575"],
+  ["Macaé","RJ","5522999375470"],
+  ["Maceió Ponta Verde","AL","5582993315665"],
+  ["Magé","RJ","552139622726"],
+  ["Marechal Cândido Rondon","PR","5545998531212"],
+  ["Moema São Paulo","SP","5511992265779"],
+  ["Monte Alto","SP","5516997217557"],
+  ["Morumbi São Paulo","SP","5511913120612"],
+  ["Nova Iguaçú","RJ","5521966925417"],
+  ["Nova Mutum","MT","5565999557379"],
+  ["Ourinhos","SP","5514997613465"],
+  ["Palhoça","SC","5548992070909"],
+  ["Paranaíba","MS","5567981151093"],
+  ["Paulo Afonso","BA","5575991583702"],
+  ["Pinheirinhos Curitiba","PR","554198788354"],
+  ["Pinheiros","SP","5511982201688"],
+  ["Pomerode","SC","5547988558066"],
+  ["Ponta Grossa","PR","5542988387600"],
+  ["Porto Alegre Cristo Redentor","RS","5551999792483"],
+  ["Porto Alegre Santana","RS","5551997111007"],
+  ["Porto Seguro","BA","5573988330712"],
+  ["Porto Velho","RO","5569992358457"],
+  ["Presidente Dutra","MA","5599981514992"],
+  ["Primavera do Leste","MT","5566999186765"],
+  ["Redenção","PA","5594991660129"],
+  ["Ribeirão Preto","SP","5516997244248"],
+  ["Ribeirão Preto Boulevard","SP","5516991585625"],
+  ["Ribeirão Preto Ribeirânia","SP","5516991328807"],
+  ["Rio Branco Bosque","AC","5568992329494"],
+  ["Rio Claro","SP","5519999990839"],
+  ["Santa Bárbara D'Oeste","SP","5519997600344"],
+  ["Santa Cruz do Capibaribe","PE","5581994084923"],
+  ["Santana do Ipanema","AL","5582987141661"],
+  ["Santarém","PA","5593992014470"],
+  ["São Bernardo do Campo","SP","5511997934340"],
+  ["São Joaquim da Barra","SP","5516991667211"],
+  ["São José dos Pinhais","PR","5541985082932"],
+  ["São Luís – Renascença","MA","5598984842137"],
+  ["São Miguel do Oeste","SC","5549992025104"],
+  ["São Paulo – Higienópolis","SP","5511943679180"],
+  ["Sapezal","MT","5565999723914"],
+  ["Serra Talhada","PE","5587999191017"],
+  ["Sertãozinho","SP","5516996129292"],
+  ["Sete Lagoas","MG","5531998263222"],
+  ["Setor Bueno Goiânia","GO","556236451000"],
+  ["Setor Sul Goiânia","GO","5562998700471"],
+  ["Sinop","MT","5566996837406"],
+  ["Sorocaba","SP","5515998021111"],
+  ["Sorriso","MT","5566999025253"],
+  ["Sousa","PB","5583981344207"],
+  ["Taguatinga Sul","DF","5561974004461"],
+  ["Tangará da Serra","MT","556533268302"],
+  ["Taquaritinga","SP","5516997555586"],
+  ["Taubaté","SP","5512991514488"],
+  ["Telêmaco Borba","PR","5542991225603"],
+  ["Tucuruí","PA","5594981042716"],
+  ["Umuarama","PR","5544984483999"],
+  ["Valparaíso","GO","5561982090814"],
+  ["Videira","SC","5549998250158"],
+  ["Vilhena","RO","5569999490702"],
+  ["Votuporanga","SP","5517996753930"],
+  ["Wenceslau Braz","PR","5543998183500"],
+];
+
+function formatarTelefone(num) {
+  const n = num.replace(/^55/, "");
+  if (n.length === 11) return `(${n.slice(0,2)}) ${n.slice(2,7)}-${n.slice(7)}`;
+  if (n.length === 10) return `(${n.slice(0,2)}) ${n.slice(2,6)}-${n.slice(6)}`;
+  return num;
+}
+
+const grid = document.getElementById("grid");
+const busca = document.getElementById("busca");
+const filtroUf = document.getElementById("filtroUf");
+const contador = document.getElementById("contador");
+
+const ufs = [...new Set(unidades.map(u => u[1]))].sort();
+ufs.forEach(uf => {
+  const opt = document.createElement("option");
+  opt.value = uf;
+  opt.textContent = uf;
+  filtroUf.appendChild(opt);
+});
+
+function render() {
+  const termo = busca.value.toLowerCase().trim();
+  const uf = filtroUf.value;
+  const filtradas = unidades.filter(([nome, estado]) => {
+    const matchTermo = !termo || nome.toLowerCase().includes(termo) || estado.toLowerCase().includes(termo);
+    const matchUf = !uf || estado === uf;
+    return matchTermo && matchUf;
+  });
+
+  grid.innerHTML = "";
+  contador.textContent = `${filtradas.length} ${filtradas.length === 1 ? "unidade" : "unidades"}`;
+
+  if (filtradas.length === 0) {
+    grid.innerHTML = '<div class="empty">Nenhuma unidade encontrada</div>';
+    return;
+  }
+
+  filtradas.forEach(([nome, uf, tel]) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="info">
+        <div class="nome"><span class="uf">${uf}</span>${nome}</div>
+        <div class="telefone">${formatarTelefone(tel)}</div>
+      </div>
+      <a class="whatsapp" href="https://api.whatsapp.com/send?phone=${tel}" target="_blank" rel="noopener" title="Abrir no WhatsApp">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.6 6.32A7.85 7.85 0 0 0 12.05 4a7.94 7.94 0 0 0-6.88 11.9L4 20l4.2-1.1a7.93 7.93 0 0 0 3.84.98h.01a7.94 7.94 0 0 0 5.55-13.56zm-5.55 12.2a6.6 6.6 0 0 1-3.36-.92l-.24-.14-2.5.65.67-2.43-.16-.25a6.6 6.6 0 1 1 12.25-3.5 6.6 6.6 0 0 1-6.6 6.6zm3.62-4.94c-.2-.1-1.17-.58-1.36-.64-.18-.07-.31-.1-.45.1-.13.2-.5.64-.62.77-.11.13-.23.15-.43.05-.2-.1-.84-.31-1.6-.99-.6-.53-1-1.18-1.12-1.38-.11-.2-.01-.31.09-.41.09-.09.2-.23.3-.35.1-.12.13-.2.2-.33.06-.13.03-.25-.02-.35-.05-.1-.45-1.08-.62-1.48-.16-.39-.33-.34-.45-.34-.12-.01-.25-.01-.38-.01-.13 0-.34.05-.52.25-.18.2-.68.66-.68 1.62 0 .96.7 1.88.8 2.01.1.13 1.37 2.1 3.32 2.94.46.2.83.32 1.11.4.47.15.9.13 1.23.08.38-.06 1.17-.48 1.33-.94.17-.46.17-.86.12-.94-.05-.08-.18-.13-.38-.23z"/></svg>
+      </a>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+busca.addEventListener("input", render);
+filtroUf.addEventListener("change", render);
+render();
+</script>
+</body>
+</html>

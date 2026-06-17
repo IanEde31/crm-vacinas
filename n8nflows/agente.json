@@ -31,23 +31,22 @@
       "position": [
         -1888,
         -64
-      ],
-      "notes": "Responde rápido pra Evolution não retentar; processamento continua em paralelo"
+      ]
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
             {
-              "id": "cfg-delay-min",
-              "name": "delay_resposta_min_seg",
-              "value": 300,
+              "id": "cfg-buf-win",
+              "name": "buffer_window_seg",
+              "value": 120,
               "type": "number"
             },
             {
-              "id": "cfg-delay-max",
-              "name": "delay_resposta_max_seg",
-              "value": 1500,
+              "id": "cfg-buf-poll",
+              "name": "buffer_poll_seg",
+              "value": 20,
               "type": "number"
             },
             {
@@ -75,11 +74,11 @@
         -1888,
         300
       ],
-      "notes": "AJUSTE AQUI os tempos de espera (em SEGUNDOS). delay_resposta = espera antes do Carlos responder (produção 300-1500 = 5-25min). pausa_entre_msgs = pausa entre as mensagens quebradas. Para TESTAR, baixe o delay (ex.: 10 e 30) pra não esperar minutos."
+      "notes": "AJUSTE AQUI os tempos (em SEGUNDOS). buffer_window = silêncio antes de processar (prod 120, teste 10-20). buffer_poll = intervalo de re-check (prod 20, teste 5). pausa_entre_msgs = pausa entre as mensagens que o Carlos manda."
     },
     {
       "parameters": {
-        "jsCode": "  // Normaliza o payload da Evolution. Trata apenas TEXTO e ÁUDIO —\n  // imagem, documento, sticker, localização etc. são ignorados de propósito.\n  const raw = $input.first().json.body || $input.first().json;\n  const data = raw.data || raw;\n  const key = data.key || {};\n\n  // Ignora mensagens enviadas por nós mesmos.\n  if (key.fromMe === true) {\n    return [];\n  }\n\n  const semSufixo = function (jid) { return (jid || '').replace(/@.*$/, ''); };\n  const ehLid = function (jid) { return typeof jid === 'string' && jid.endsWith('@lid'); };\n\n  // Número real do remetente. Com a migração do WhatsApp para LID, o\n  // remoteJid pode vir como \"<id>@lid\" (identificador opaco, não telefone).\n  // Nesse caso o telefone vem em senderPn / remoteJidAlt.\n  let numero = '';\n  for (const cand of [key.senderPn, key.remoteJidAlt, key.remoteJid]) {\n    if (cand && !ehLid(cand)) {\n      numero = semSufixo(cand).replace(/\\D/g, '');\n      if (numero) break;\n    }\n  }\n\n  // Identificador LID — identidade estável do contato no novo modelo do\n  // WhatsApp. Guardado na 1ª resposta para casar conversas futuras.\n  let lid = '';\n  for (const cand of [key.remoteJid, key.remoteJidAlt, key.previousRemoteJid, key.senderLid, key.participantLid]) {\n    if (ehLid(cand)) { lid = semSufixo(cand); break; }\n  }\n\n  // Sem telefone e sem LID não há como identificar o remetente.\n  if (!numero && !lid) return [];\n\n  const msg = data.message || {};\n  let tipo = 'desconhecido';\n  let conteudo = null;\n  let mimetype = null;\n\n  if (msg.conversation) {\n    tipo = 'texto';\n    conteudo = msg.conversation;\n  } else if (msg.extendedTextMessage?.text) {\n    tipo = 'texto';\n    conteudo = msg.extendedTextMessage.text;\n  } else if (msg.audioMessage) {\n    tipo = 'audio';\n    mimetype = msg.audioMessage.mimetype;\n  } else {\n    // imagem, documento, sticker, localização, etc. — ignorados\n    return [];\n  }\n\n  return [{\n    json: {\n      numero,\n      lid,\n      tipo,\n      conteudo,\n      mimetype,\n      messageId: key.id,\n      timestamp: data.messageTimestamp || Math.floor(Date.now() / 1000),\n    },\n  }];"
+        "jsCode": "  // Normaliza o payload da Evolution. Trata apenas TEXTO e ÁUDIO.\n  const raw = $input.first().json.body || $input.first().json;\n  const data = raw.data || raw;\n  const key = data.key || {};\n\n  if (key.fromMe === true) return [];\n\n  const semSufixo = function (jid) { return (jid || '').replace(/@.*$/, ''); };\n  const ehLid = function (jid) { return typeof jid === 'string' && jid.endsWith('@lid'); };\n\n  // Telefone real: senderPn é a fonte confiável quando remoteJid vem como @lid.\n  let numero = '';\n  for (const cand of [key.senderPn, key.remoteJidAlt, key.remoteJid]) {\n    if (cand && !ehLid(cand)) {\n      numero = semSufixo(cand).replace(/\\D/g, '');\n      if (numero) break;\n    }\n  }\n\n  // LID — identidade estável do contato no novo modelo do WhatsApp.\n  let lid = '';\n  for (const cand of [key.remoteJid, key.remoteJidAlt, key.previousRemoteJid, key.senderLid, key.participantLid]) {\n    if (ehLid(cand)) { lid = semSufixo(cand); break; }\n  }\n\n  if (!numero && !lid) return [];\n\n  const msg = data.message || {};\n  let tipo = 'desconhecido';\n  let conteudo = null;\n  let mimetype = null;\n\n  if (msg.conversation) {\n    tipo = 'texto';\n    conteudo = msg.conversation;\n  } else if (msg.extendedTextMessage?.text) {\n    tipo = 'texto';\n    conteudo = msg.extendedTextMessage.text;\n  } else if (msg.audioMessage) {\n    tipo = 'audio';\n    mimetype = msg.audioMessage.mimetype;\n  } else {\n    return [];\n  }\n\n  return [{\n    json: {\n      numero,\n      lid,\n      tipo,\n      conteudo,\n      mimetype,\n      messageId: key.id,\n      timestamp: data.messageTimestamp || Math.floor(Date.now() / 1000),\n      // Carimbo do momento em que esta execução entrou — usado pelo Switch\n      // do buffer pra decidir se já passaram buffer_window_seg de silêncio.\n      bufferStartMs: Date.now(),\n    },\n  }];"
       },
       "id": "6f22a76b-6536-4cc2-8e00-bc011032e14b",
       "name": "Normalizar mensagem",
@@ -89,7 +88,7 @@
         -1664,
         80
       ],
-      "notes": "Apenas texto e áudio. Resolve o telefone via senderPn (suporta LID) e captura o lid."
+      "notes": "Apenas texto e áudio. senderPn/LID. Carimba bufferStartMs."
     },
     {
       "parameters": {
@@ -112,8 +111,7 @@
           "id": "2EbJspi0q9akU8fp",
           "name": "Postgres account"
         }
-      },
-      "notes": "Casa por fone_canonico (tolera 9º dígito / código de país) OU pelo lid já conhecido."
+      }
     },
     {
       "parameters": {
@@ -150,7 +148,7 @@
     },
     {
       "parameters": {
-        "jsCode": "  // Junta os dados da mensagem com os dados do cliente oculto ativo.\n  const msg = $('Normalizar mensagem').first().json;\n  const co = $input.first().json;\n  const eh_primeira_resposta = !co.primeira_resposta_em;\n\n  // Número para onde o Carlos responde: o do remetente quando há; senão o\n  // telefone cadastrado da clínica (caso a mensagem tenha vindo só com LID).\n  const soDig = function (s) { return (s || '').replace(/\\D/g, ''); };\n  const numero_envio = msg.numero || soDig(co.clinica_whatsapp) || soDig(co.clinica_telefone);\n\n  return [{ json: { ...msg, ...co, eh_primeira_resposta, numero_envio } }];"
+        "jsCode": "  // Junta os dados da mensagem com os dados do cliente oculto ativo.\n  const msg = $('Normalizar mensagem').first().json;\n  const co = $input.first().json;\n  const eh_primeira_resposta = !co.primeira_resposta_em;\n\n  // Número de envio: prioriza o do remetente; se só veio LID, usa o cadastrado.\n  const normFone = function (s) {\n    let d = (s || '').replace(/\\D/g, '');\n    if (d.length === 10 || d.length === 11) d = '55' + d;\n    return d;\n  };\n  const numero_envio = msg.numero || normFone(co.clinica_whatsapp) || normFone(co.clinica_telefone);\n\n  return [{ json: { ...msg, ...co, eh_primeira_resposta, numero_envio } }];"
       },
       "id": "1a69acd2-fdf9-4d52-adb3-2252f9f388ff",
       "name": "Merge dados",
@@ -232,7 +230,7 @@
     },
     {
       "parameters": {
-        "jsCode": "  // ───────────────────────────────────────────────────────────────────\n  // TODO — CONVERSÃO DE ÁUDIO (decidir como hospedar)\n  //\n  // O WhatsApp entrega áudio em ogg/opus; o OpenRouter (content do tipo\n  // input_audio) só aceita \"mp3\" ou \"wav\". Enquanto a conversão real não\n  // estiver ligada, a transcrição vai falhar para áudios de verdade.\n  //\n  // Para ligar, troque o passthrough abaixo por uma destas opções:\n  //   A) n8n self-hosted COM ffmpeg — nó Execute Command:\n  //        ffmpeg -i pipe:0 -f mp3 pipe:1\n  //   B) API externa (ex.: CloudConvert) — sobe o base64, converte p/ mp3.\n  // Em ambos os casos, devolva audio_base64 (mp3 em base64).\n  // ───────────────────────────────────────────────────────────────────\n  const base = $('Merge dados').first().json;\n  const base64 = $input.first().json.base64;\n\n  if (!base64) {\n    throw new Error('Evolution nao retornou base64 do audio');\n  }\n\n  return [{\n    json: {\n      ...base,\n      audio_base64: base64, // TODO: substituir pelo mp3 convertido\n      audio_format: 'mp3',  // OpenRouter aceita 'mp3' ou 'wav'\n    },\n  }];"
+        "jsCode": "  // TODO — CONVERSÃO DE ÁUDIO. WhatsApp manda ogg/opus; OpenRouter input_audio\n  // só aceita \"mp3\" ou \"wav\". Ligar ffmpeg (n8n self-hosted) ou CloudConvert.\n  const base = $('Merge dados').first().json;\n  const base64 = $input.first().json.base64;\n  if (!base64) throw new Error('Evolution nao retornou base64 do audio');\n  return [{\n    json: {\n      ...base,\n      audio_base64: base64, // TODO: substituir pelo mp3 convertido\n      audio_format: 'mp3',\n    },\n  }];"
       },
       "id": "a1b2c3d4-0001-4000-8000-000000000001",
       "name": "Converter ogg→mp3 (TODO)",
@@ -242,7 +240,7 @@
         -320,
         -100
       ],
-      "notes": "TODO: ligar conversão ogg/opus → mp3. Sem isso a transcrição falha em áudios reais. Ver comentário no nó."
+      "notes": "TODO: ligar conversão ogg/opus → mp3."
     },
     {
       "parameters": {
@@ -268,12 +266,11 @@
           "id": "openrouter-cred",
           "name": "OpenRouter"
         }
-      },
-      "notes": "OpenRouter não tem endpoint Whisper — transcrição via modelo multimodal (Gemini) por chat completions."
+      }
     },
     {
       "parameters": {
-        "jsCode": "  // Anexa a transcrição do OpenRouter ao conteúdo da mensagem.\n  const resp = $input.first().json;\n  const transcricao = (resp.choices?.[0]?.message?.content || '').trim();\n  const base = $('Merge dados').first().json;\n  return [{\n    json: {\n      ...base,\n      conteudo: '[AUDIO TRANSCRITO]: ' + (transcricao || '(audio sem fala reconhecivel)'),\n      conteudo_processado: true,\n    },\n  }];"
+        "jsCode": "  const resp = $input.first().json;\n  const transcricao = (resp.choices?.[0]?.message?.content || '').trim();\n  const base = $('Merge dados').first().json;\n  return [{\n    json: {\n      ...base,\n      conteudo: '[AUDIO TRANSCRITO]: ' + (transcricao || '(audio sem fala reconhecivel)'),\n      conteudo_processado: true,\n    },\n  }];"
       },
       "id": "6d4018cc-8c03-4fb6-98a9-67cf5b957bfd",
       "name": "Anexar transcrição",
@@ -287,9 +284,9 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO atividades (lead_id, tipo, titulo, descricao, realizada_em) VALUES ($1, 'whatsapp', $2, $3, NOW()); UPDATE clientes_ocultos SET primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()), tempo_resposta_minutos = COALESCE(tempo_resposta_minutos, EXTRACT(EPOCH FROM (NOW() - enviado_em))/60), respondeu = true, status = CASE WHEN COALESCE(status, 'aguardando_resposta') = 'aguardando_resposta' THEN 'em_conversa' ELSE status END, ultima_msg_id = $5, lid = COALESCE(lid, NULLIF($6, '')), transcricao = COALESCE(transcricao, '') || E'\\n[' || to_char(NOW(), 'HH24:MI') || '] CLÍNICA: ' || $3 WHERE id = $4; SELECT 1 AS ok;",
+        "query": "INSERT INTO atividades (lead_id, tipo, titulo, descricao, realizada_em) VALUES ($1, 'whatsapp', $2, $3, NOW()); UPDATE clientes_ocultos SET primeira_resposta_em = COALESCE(primeira_resposta_em, NOW()), tempo_resposta_minutos = COALESCE(tempo_resposta_minutos, EXTRACT(EPOCH FROM (NOW() - enviado_em))/60), respondeu = true, status = CASE WHEN COALESCE(status, 'aguardando_resposta') = 'aguardando_resposta' THEN 'em_conversa' ELSE status END, lid = COALESCE(lid, NULLIF($5, '')), transcricao = COALESCE(transcricao, '') || E'\\n[' || to_char(NOW(), 'HH24:MI') || '] CLÍNICA: ' || $3 WHERE id = $4; SELECT 1 AS ok;",
         "options": {
-          "queryReplacement": "={{ [$json.lead_id, 'Mensagem recebida (' + $json.tipo + ')', $json.conteudo, $json.cliente_oculto_id, $json.messageId, $json.lid] }}"
+          "queryReplacement": "={{ [$json.lead_id, 'Mensagem recebida (' + $json.tipo + ')', $json.conteudo, $json.cliente_oculto_id, $json.lid] }}"
         }
       },
       "id": "af2e9c66-7a60-4b4d-a044-86c3941cc377",
@@ -306,42 +303,176 @@
           "name": "Postgres account"
         }
       },
-      "notes": "Grava a mensagem na transcrição e em atividades. Marca respondeu/status/ultima_msg_id e aprende o lid na 1ª resposta."
+      "notes": "Grava a mensagem na transcrição (DB) e em atividades. Aprende o lid na 1ª resposta."
     },
     {
       "parameters": {
-        "jsCode": "  // Sorteia o delay antes de o Carlos responder, dentro da faixa definida\n  // no nó \"Config de tempos\". Esta espera também é a JANELA DE AGREGAÇÃO do\n  // debounce (ver o nó \"Sou a última mensagem?\").\n  const cfg = $('Config de tempos').first().json;\n  const min = Number(cfg.delay_resposta_min_seg);\n  const max = Number(cfg.delay_resposta_max_seg);\n  const lo = isFinite(min) ? min : 300;\n  const hi = (isFinite(max) && max >= lo) ? max : Math.max(lo, 1500);\n  const delay_seg = Math.round(lo + Math.random() * (hi - lo));\n  // Base vem de 'Merge dados' (nó estável): o nó Postgres anterior não\n  // repassa o contexto, então não dá pra usar $input aqui.\n  const base = $('Merge dados').first().json;\n  return [{\n    json: {\n      ...base,\n      delay_segundos: delay_seg,\n      delay_min_arredondado: Math.round(delay_seg / 60),\n    },\n  }];"
+        "operation": "push",
+        "list": "=cobf:{{ $('Merge dados').first().json.cliente_oculto_id }}",
+        "messageData": "={{ $('Merge dados').first().json.conteudo || $json.conteudo }}",
+        "tail": true
       },
-      "id": "2fba6618-1fe9-4bfd-80a5-d7a407bc4352",
-      "name": "Sortear delay de resposta",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "b1c2d3e4-0010-4000-8000-000000000010",
+      "name": "Buffer: push msg",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
       "position": [
         576,
         80
       ],
-      "notes": "Sorteia o delay dentro da faixa do nó \"Config de tempos\"."
+      "credentials": {
+        "redis": {
+          "id": "redis-cred",
+          "name": "Redis account"
+        }
+      },
+      "notes": "RPUSH na lista Redis cobf:<cliente_oculto_id>. Padrão do exemplo: 1 lista por contato."
     },
     {
       "parameters": {
-        "amount": "={{ $json.delay_segundos }}"
+        "operation": "get",
+        "propertyName": "messages",
+        "key": "=cobf:{{ $('Merge dados').first().json.cliente_oculto_id }}",
+        "keyType": "list",
+        "options": {}
       },
-      "id": "cb5e4b6d-4787-4d82-bded-ecd0329f94ca",
-      "name": "Esperar (simula pessoa ocupada)",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
+      "id": "b1c2d3e4-0011-4000-8000-000000000011",
+      "name": "Buffer: ler lista",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
       "position": [
         800,
         80
       ],
-      "webhookId": "a9499152-d031-4fc8-98ed-b21fb17717fa"
+      "credentials": {
+        "redis": {
+          "id": "redis-cred",
+          "name": "Redis account"
+        }
+      },
+      "notes": "LRANGE da lista — retorna $json.messages (array)."
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "janela-passou",
+                    "leftValue": "={{ $('Normalizar mensagem').first().json.bufferStartMs }}",
+                    "rightValue": "={{ $now.toMillis() - ($('Config de tempos').first().json.buffer_window_seg * 1000) }}",
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "prosseguir"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "esperar"
+        }
+      },
+      "id": "b1c2d3e4-0012-4000-8000-000000000012",
+      "name": "Buffer: já passou a janela?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1024,
+        80
+      ],
+      "notes": "Compara o instante em que esta execução entrou com (agora - buffer_window). Se já passou: prosseguir. Senão: esperar e re-checar."
+    },
+    {
+      "parameters": {
+        "amount": "={{ $('Config de tempos').first().json.buffer_poll_seg }}"
+      },
+      "id": "b1c2d3e4-0013-4000-8000-000000000013",
+      "name": "Buffer: esperar e re-checar",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1024,
+        280
+      ],
+      "webhookId": "c1d2e3f4-0013-4000-8000-000000000013",
+      "notes": "Espera buffer_poll_seg e volta pro \"Buffer: ler lista\". Loop curto."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "tem-msg",
+              "leftValue": "={{ $json.messages.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1c2d3e4-0014-4000-8000-000000000014",
+      "name": "Buffer: tem msg?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1248,
+        80
+      ],
+      "notes": "Se a lista já foi consumida por outra execução (DEL'd), esta exec encerra silenciosamente aqui (branch false não conecta a nada)."
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "=cobf:{{ $('Merge dados').first().json.cliente_oculto_id }}"
+      },
+      "id": "b1c2d3e4-0015-4000-8000-000000000015",
+      "name": "Buffer: limpar lista",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        80
+      ],
+      "credentials": {
+        "redis": {
+          "id": "redis-cred",
+          "name": "Redis account"
+        }
+      },
+      "notes": "DEL atômico — garante que só esta exec processa o lote."
     },
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "SELECT transcricao, mensagem_enviada, enviado_em, ultima_msg_id, status FROM clientes_ocultos WHERE id = $1;",
+        "query": "SELECT transcricao, mensagem_enviada, enviado_em, status FROM clientes_ocultos WHERE id = $1;",
         "options": {
-          "queryReplacement": "={{ [$json.cliente_oculto_id] }}"
+          "queryReplacement": "={{ [$('Merge dados').first().json.cliente_oculto_id] }}"
         }
       },
       "id": "e6b3a8a0-9c29-4c94-87b4-cb9b0f4ab813",
@@ -349,7 +480,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        1024,
+        1696,
         80
       ],
       "credentials": {
@@ -361,69 +492,14 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "eh-ultima",
-              "leftValue": "={{ $json.ultima_msg_id }}",
-              "rightValue": "={{ $('Normalizar mensagem').first().json.messageId }}",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            },
-            {
-              "id": "nao-encerrada",
-              "leftValue": "={{ $json.status }}",
-              "rightValue": "encerrado",
-              "operator": {
-                "type": "string",
-                "operation": "notEquals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "a1b2c3d4-0003-4000-8000-000000000003",
-      "name": "Sou a última mensagem?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        1248,
-        80
-      ],
-      "notes": "Debounce: só responde se nenhuma mensagem mais nova chegou durante a espera e a conversa não foi encerrada."
-    },
-    {
-      "parameters": {},
-      "id": "a1b2c3d4-0004-4000-8000-000000000004",
-      "name": "Mensagem superada",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        1472,
-        260
-      ],
-      "notes": "Chegou mensagem mais nova (ou a conversa encerrou) durante a espera — esta execução para aqui. A execução da última mensagem responde pelo lote inteiro."
-    },
-    {
-      "parameters": {
-        "jsCode": "  // Monta o prompt do Carlos a partir do histórico acumulado.\n  const hist = $input.first().json;\n  const ctx = $('Sortear delay de resposta').first().json;\n\n  const systemPrompt = [\n    'Você é Carlos Eduardo Almeida, 32 anos, analista de marketing, casado com Juliana (30), pai de Pedro (6 meses, primeiro filho). Está pesquisando vacinas particulares para o Pedro em algumas clínicas via WhatsApp.',\n    '',\n    'CONTEXTO:',\n    'A caderneta do Pedro no posto está em dia (BCG, hepatite B no nascimento, pentavalente, rotavírus, pneumocócica, meningocócica C). Você ouviu de amigos que existem vacinas particulares que valem a pena e quer entender quais, quanto custam, e se a clínica atende bebê de 6 meses.',\n    '',\n    'PERSONALIDADE E ESTILO:',\n    '- Educado, informal, português correto',\n    '- Mensagens curtas e naturais, como no WhatsApp',\n    '- Usa \"vcs\", \"pra\", \"tô\" naturalmente',\n    '- Emoji raramente, apenas em agradecimentos',\n    '- Curioso mas NÃO decidido a comprar — está coletando informação',\n    '- Sem pressa, mas demonstra interesse genuíno',\n    '',\n    'FORMATO DAS MENSAGENS (importante):',\n    '- Escreva como gente escreve no WhatsApp: mensagens curtas, não um bloco de texto grande.',\n    '- Quando tiver mais de uma ideia (ex.: reagir ao que disseram E fazer a pergunta), quebre em mensagens separadas — de 1 a 3 no total.',\n    '- Separe cada mensagem com uma LINHA EM BRANCO entre elas.',\n    '- Cada mensagem com no máximo 2-3 linhas curtas.',\n    '',\n    'OBJETIVOS DA CONVERSA (conduza naturalmente, uma coisa de cada vez):',\n    '1. Confirmar que atendem bebê de 6 meses',\n    '2. Quais vacinas particulares recomendam pra essa idade',\n    '3. Diferença pras vacinas do SUS',\n    '4. Preços (por dose e se tem pacote)',\n    '5. Como funciona o agendamento',\n    '6. Se atendem fim de semana',\n    '',\n    'REGRAS:',\n    '- Faça UMA pergunta por vez, no máximo duas',\n    '- Reaja com naturalidade ao que a clínica diz antes de perguntar a próxima',\n    '- Se pedirem seu nome: Carlos. Idade do filho: 6 meses. Nome do filho: Pedro.',\n    '- Se mandarem áudio (já transcrito): responda normalmente baseado no conteúdo',\n    '- Se mandarem uma imagem ou documento: você NÃO consegue abrir; peça gentilmente que mandem a informação por texto',\n    '- Se tentarem agendar: diga que vai conversar com a esposa primeiro e volta a falar',\n    '- Se perguntarem \"você é robô?\" ou desconfiar: \"kkk não, tô só correndo aqui no trabalho\" e encerre em 1-2 mensagens',\n    '',\n    'QUANDO ENCERRAR (use a função encerrar_conversa):',\n    '- Cobriu os 6 objetivos',\n    '- OU a conversa passou de 18 mensagens trocadas',\n    '- OU a clínica parece não querer/conseguir responder',\n    '- Encerramento padrão: \"Show, muito obrigado pelas informações! Vou conversar aqui com a Ju e te dou um retorno. Valeu!\"',\n    '',\n    'NUNCA:',\n    '- Marque agendamento de verdade',\n    '- Forneça cartão ou dado de pagamento real',\n    '- Saia do personagem',\n  ].join('\\n');\n\n  const messages = [{ role: 'system', content: systemPrompt }];\n\n  // 1ª mensagem: o disparo. Pode não existir em conversas antigas.\n  if (hist.mensagem_enviada) {\n    messages.push({ role: 'assistant', content: hist.mensagem_enviada });\n  }\n\n  // Parseia a transcrição em turnos. Cada entrada começa com \"\\n[HH:MM]\";\n  // o split por lookahead preserva mensagens com várias linhas.\n  const transcricao = hist.transcricao || '';\n  const entradas = transcricao\n    .split(/\\n(?=\\[\\d{2}:\\d{2}\\])/)\n    .map(function (e) { return e.trim(); })\n    .filter(Boolean);\n\n  for (const entrada of entradas) {\n    const mClinica = entrada.match(/^\\[\\d{2}:\\d{2}\\]\\s*CLÍNICA:\\s*([\\s\\S]+)/i);\n    const mCarlos = entrada.match(/^\\[\\d{2}:\\d{2}\\]\\s*CARLOS:\\s*([\\s\\S]+)/i);\n    if (mClinica) messages.push({ role: 'user', content: mClinica[1].trim() });\n    else if (mCarlos) messages.push({ role: 'assistant', content: mCarlos[1].trim() });\n  }\n\n  // Junta turnos consecutivos do mesmo papel (a clínica costuma mandar\n  // várias mensagens seguidas, agregadas pelo debounce da janela de delay).\n  const merged = [];\n  for (const m of messages) {\n    const last = merged[merged.length - 1];\n    if (last && last.role === m.role && m.role !== 'system') {\n      last.content += '\\n' + m.content;\n    } else {\n      merged.push({ role: m.role, content: m.content });\n    }\n  }\n\n  return [{\n    json: {\n      ...ctx,\n      messages: merged,\n      total_turnos: merged.filter(function (m) { return m.role !== 'system'; }).length,\n    },\n  }];"
+        "jsCode": "  // Monta o prompt do Carlos a partir do histórico acumulado.\n  const hist = $input.first().json;\n  // ctx vem de Merge dados (nó estável com cliente_oculto_id, lead_id, numero_envio).\n  const ctx = $('Merge dados').first().json;\n\n  const systemPrompt = [\n    'Você é Carlos Eduardo Almeida, 32 anos, analista de marketing, casado com Juliana (30), pai de Pedro (6 meses, primeiro filho). Está pesquisando vacinas particulares para o Pedro em algumas clínicas via WhatsApp.',\n    '',\n    'CONTEXTO:',\n    'A caderneta do Pedro no posto está em dia (BCG, hepatite B no nascimento, pentavalente, rotavírus, pneumocócica, meningocócica C). Você ouviu de amigos que existem vacinas particulares que valem a pena e quer entender quais, quanto custam, e se a clínica atende bebê de 6 meses.',\n    '',\n    'PERSONALIDADE E ESTILO:',\n    '- Educado, informal, português correto',\n    '- Mensagens curtas e naturais, como no WhatsApp',\n    '- Usa \"vcs\", \"pra\", \"tô\" naturalmente',\n    '- Emoji raramente, apenas em agradecimentos',\n    '- Curioso mas NÃO decidido a comprar — está coletando informação',\n    '- Sem pressa, mas demonstra interesse genuíno',\n    '',\n    'FORMATO DAS MENSAGENS (importante):',\n    '- Escreva como gente escreve no WhatsApp: mensagens curtas, não um bloco de texto grande.',\n    '- Quando tiver mais de uma ideia (ex.: reagir ao que disseram E fazer a pergunta), quebre em mensagens separadas — de 1 a 3 no total.',\n    '- Separe cada mensagem com uma LINHA EM BRANCO entre elas.',\n    '- Cada mensagem com no máximo 2-3 linhas curtas.',\n    '',\n    'OBJETIVOS DA CONVERSA (conduza naturalmente, uma coisa de cada vez):',\n    '1. Confirmar que atendem bebê de 6 meses',\n    '2. Quais vacinas particulares recomendam pra essa idade',\n    '3. Diferença pras vacinas do SUS',\n    '4. Preços (por dose e se tem pacote)',\n    '5. Como funciona o agendamento',\n    '6. Se atendem fim de semana',\n    '',\n    'REGRAS:',\n    '- Faça UMA pergunta por vez, no máximo duas',\n    '- Reaja com naturalidade ao que a clínica diz antes de perguntar a próxima',\n    '- Se pedirem seu nome: Carlos. Idade do filho: 6 meses. Nome do filho: Pedro.',\n    '- Se mandarem áudio (já transcrito): responda normalmente baseado no conteúdo',\n    '- Se mandarem uma imagem ou documento: você NÃO consegue abrir; peça gentilmente que mandem a informação por texto',\n    '- Se tentarem agendar: diga que vai conversar com a esposa primeiro e volta a falar',\n    '- Se perguntarem \"você é robô?\" ou desconfiar: \"kkk não, tô só correndo aqui no trabalho\" e encerre em 1-2 mensagens',\n    '',\n    'QUANDO ENCERRAR (use a função encerrar_conversa):',\n    '- Cobriu os 6 objetivos',\n    '- OU a conversa passou de 18 mensagens trocadas',\n    '- OU a clínica parece não querer/conseguir responder',\n    '- Encerramento padrão: \"Show, muito obrigado pelas informações! Vou conversar aqui com a Ju e te dou um retorno. Valeu!\"',\n    '',\n    'NUNCA:',\n    '- Marque agendamento de verdade',\n    '- Forneça cartão ou dado de pagamento real',\n    '- Saia do personagem',\n  ].join('\\n');\n\n  const messages = [{ role: 'system', content: systemPrompt }];\n  if (hist.mensagem_enviada) {\n    messages.push({ role: 'assistant', content: hist.mensagem_enviada });\n  }\n\n  const transcricao = hist.transcricao || '';\n  const entradas = transcricao\n    .split(/\\n(?=\\[\\d{2}:\\d{2}\\])/)\n    .map(function (e) { return e.trim(); })\n    .filter(Boolean);\n\n  for (const entrada of entradas) {\n    const mClinica = entrada.match(/^\\[\\d{2}:\\d{2}\\]\\s*CLÍNICA:\\s*([\\s\\S]+)/i);\n    const mCarlos = entrada.match(/^\\[\\d{2}:\\d{2}\\]\\s*CARLOS:\\s*([\\s\\S]+)/i);\n    if (mClinica) messages.push({ role: 'user', content: mClinica[1].trim() });\n    else if (mCarlos) messages.push({ role: 'assistant', content: mCarlos[1].trim() });\n  }\n\n  const merged = [];\n  for (const m of messages) {\n    const last = merged[merged.length - 1];\n    if (last && last.role === m.role && m.role !== 'system') {\n      last.content += '\\n' + m.content;\n    } else {\n      merged.push({ role: m.role, content: m.content });\n    }\n  }\n\n  return [{\n    json: {\n      ...ctx,\n      messages: merged,\n      total_turnos: merged.filter(function (m) { return m.role !== 'system'; }).length,\n    },\n  }];"
       },
       "id": "dd168615-4722-423c-8ddb-eef1e145f68e",
       "name": "Montar prompt do Carlos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1472,
+        1920,
         80
       ]
     },
@@ -443,7 +519,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1696,
+        2144,
         80
       ],
       "credentials": {
@@ -455,30 +531,29 @@
     },
     {
       "parameters": {
-        "jsCode": "  // Processa a resposta do OpenRouter: mensagem normal ou tool call.\n  const resp = $input.first().json;\n  const msg = resp.choices?.[0]?.message;\n  if (!msg) {\n    throw new Error('Resposta invalida do OpenRouter');\n  }\n\n  const ctx = $('Montar prompt do Carlos').first().json;\n\n  // Valores aceitos pelo CHECK de motivo_encerramento no banco.\n  const MOTIVOS_TOOL = ['objetivos_cobertos', 'limite_turnos', 'clinica_desistiu', 'desconfianca'];\n\n  let mensagem_resposta = '';\n  let encerrar = false;\n  let motivo_encerramento = null;\n\n  if (msg.tool_calls && msg.tool_calls.length > 0) {\n    const call = msg.tool_calls[0];\n    if (call.function?.name === 'encerrar_conversa') {\n      const args = JSON.parse(call.function.arguments);\n      mensagem_resposta = args.mensagem_final;\n      encerrar = true;\n      motivo_encerramento = MOTIVOS_TOOL.includes(args.motivo) ? args.motivo : 'objetivos_cobertos';\n    }\n  } else if (msg.content) {\n    mensagem_resposta = msg.content.trim();\n  }\n\n  if (!mensagem_resposta) {\n    throw new Error('Sem mensagem para enviar');\n  }\n\n  // Hard stop de segurança: passou de 20 turnos, força encerramento.\n  if (ctx.total_turnos >= 20 && !encerrar) {\n    encerrar = true;\n    motivo_encerramento = 'limite_turnos_forcado';\n  }\n\n  return [{\n    json: { ...ctx, mensagem_resposta, encerrar, motivo_encerramento },\n  }];"
+        "jsCode": "  const resp = $input.first().json;\n  const msg = resp.choices?.[0]?.message;\n  if (!msg) throw new Error('Resposta invalida do OpenRouter');\n\n  const ctx = $('Montar prompt do Carlos').first().json;\n  const MOTIVOS_TOOL = ['objetivos_cobertos', 'limite_turnos', 'clinica_desistiu', 'desconfianca'];\n\n  let mensagem_resposta = '';\n  let encerrar = false;\n  let motivo_encerramento = null;\n\n  if (msg.tool_calls && msg.tool_calls.length > 0) {\n    const call = msg.tool_calls[0];\n    if (call.function?.name === 'encerrar_conversa') {\n      const args = JSON.parse(call.function.arguments);\n      mensagem_resposta = args.mensagem_final;\n      encerrar = true;\n      motivo_encerramento = MOTIVOS_TOOL.includes(args.motivo) ? args.motivo : 'objetivos_cobertos';\n    }\n  } else if (msg.content) {\n    mensagem_resposta = msg.content.trim();\n  }\n\n  if (!mensagem_resposta) throw new Error('Sem mensagem para enviar');\n\n  if (ctx.total_turnos >= 20 && !encerrar) {\n    encerrar = true;\n    motivo_encerramento = 'limite_turnos_forcado';\n  }\n\n  return [{ json: { ...ctx, mensagem_resposta, encerrar, motivo_encerramento } }];"
       },
       "id": "92529c67-be60-4c22-b7eb-cafee0916dcd",
       "name": "Processar resposta IA",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1920,
+        2368,
         80
       ]
     },
     {
       "parameters": {
-        "jsCode": "  // Quebra a resposta do Carlos em mensagens curtas para o envio.\n  // O Carlos separa mensagens distintas com LINHA EM BRANCO; cada bloco\n  // vira uma mensagem no WhatsApp. Saída: um item por mensagem.\n  const src = $('Processar resposta IA').first().json;\n  const texto = (src.mensagem_resposta || '').trim();\n\n  let partes = texto.split(/\\n\\s*\\n+/).map(function (p) { return p.trim(); }).filter(Boolean);\n\n  // Segurança: se um bloco ficou muito longo, quebra por frase até ~320 chars.\n  const MAX = 320;\n  const expandido = [];\n  for (const p of partes) {\n    if (p.length <= MAX) { expandido.push(p); continue; }\n    const frases = p.match(/[^.!?\\n]+[.!?]*\\s*/g) || [p];\n    let buff = '';\n    for (const f of frases) {\n      if ((buff + f).length > MAX && buff) { expandido.push(buff.trim()); buff = f; }\n      else { buff += f; }\n    }\n    if (buff.trim()) expandido.push(buff.trim());\n  }\n  partes = expandido.filter(Boolean);\n\n  // Nunca mais que 4 mensagens — junta o excedente na última.\n  if (partes.length > 4) {\n    partes = partes.slice(0, 3).concat([partes.slice(3).join('\\n')]);\n  }\n  if (partes.length === 0) partes = [texto || '...'];\n\n  return partes.map(function (parte, i) {\n    // \"Digitando...\" proporcional ao tamanho, entre 0.8s e 4s.\n    const typing_ms = Math.min(4000, Math.max(800, parte.length * 45));\n    return {\n      json: {\n        numero_envio: src.numero_envio,\n        parte: parte,\n        parte_index: i,\n        total_partes: partes.length,\n        typing_ms: typing_ms,\n      },\n    };\n  });"
+        "jsCode": "  const src = $('Processar resposta IA').first().json;\n  const texto = (src.mensagem_resposta || '').trim();\n\n  let partes = texto.split(/\\n\\s*\\n+/).map(function (p) { return p.trim(); }).filter(Boolean);\n\n  const MAX = 320;\n  const expandido = [];\n  for (const p of partes) {\n    if (p.length <= MAX) { expandido.push(p); continue; }\n    const frases = p.match(/[^.!?\\n]+[.!?]*\\s*/g) || [p];\n    let buff = '';\n    for (const f of frases) {\n      if ((buff + f).length > MAX && buff) { expandido.push(buff.trim()); buff = f; }\n      else { buff += f; }\n    }\n    if (buff.trim()) expandido.push(buff.trim());\n  }\n  partes = expandido.filter(Boolean);\n\n  if (partes.length > 4) {\n    partes = partes.slice(0, 3).concat([partes.slice(3).join('\\n')]);\n  }\n  if (partes.length === 0) partes = [texto || '...'];\n\n  return partes.map(function (parte, i) {\n    const typing_ms = Math.min(4000, Math.max(800, parte.length * 45));\n    return {\n      json: {\n        numero_envio: src.numero_envio,\n        parte: parte,\n        parte_index: i,\n        total_partes: partes.length,\n        typing_ms: typing_ms,\n      },\n    };\n  });"
       },
       "id": "a1b2c3d4-0005-4000-8000-000000000005",
       "name": "Separar em mensagens",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2144,
+        2592,
         80
-      ],
-      "notes": "Quebra a resposta do Carlos em mensagens curtas (separadas por linha em branco). Um item por mensagem."
+      ]
     },
     {
       "parameters": {
@@ -490,24 +565,22 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        2368,
+        2816,
         80
-      ],
-      "notes": "Envia cada parte como uma mensagem separada, uma de cada vez."
+      ]
     },
     {
       "parameters": {
-        "jsCode": "  // Após o loop de envio das partes, devolve UM item para o registro no\n  // banco rodar uma única vez (o loop emitiria várias).\n  return [{ json: $('Processar resposta IA').first().json }];"
+        "jsCode": "  return [{ json: $('Processar resposta IA').first().json }];"
       },
       "id": "a1b2c3d4-0008-4000-8000-000000000008",
       "name": "Consolidar envio",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2592,
+        3040,
         0
-      ],
-      "notes": "Colapsa o resultado do loop em um único item para o registro rodar uma vez só."
+      ]
     },
     {
       "parameters": {
@@ -525,16 +598,15 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2592,
-        220
+        3040,
+        200
       ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "SiHA5EsfziVyjwPr",
           "name": "evoian"
         }
-      },
-      "notes": "Envia uma mensagem. delay = tempo de \"digitando...\" proporcional ao tamanho do texto."
+      }
     },
     {
       "parameters": {
@@ -545,11 +617,10 @@
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
-        2816,
-        220
+        3264,
+        200
       ],
-      "webhookId": "b1c2d3e4-1111-4000-8000-000000000007",
-      "notes": "Pausa entre uma mensagem e a próxima. Faixa definida no nó \"Config de tempos\"."
+      "webhookId": "b1c2d3e4-1111-4000-8000-000000000007"
     },
     {
       "parameters": {
@@ -564,7 +635,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        2816,
+        3264,
         0
       ],
       "credentials": {
@@ -572,8 +643,7 @@
           "id": "2EbJspi0q9akU8fp",
           "name": "Postgres account"
         }
-      },
-      "notes": "Grava a resposta COMPLETA (com as quebras) na transcrição e em atividades."
+      }
     },
     {
       "parameters": {
@@ -604,7 +674,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        3040,
+        3488,
         0
       ]
     },
@@ -624,7 +694,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3264,
+        3712,
         -80
       ],
       "credentials": {
@@ -636,14 +706,14 @@
     },
     {
       "parameters": {
-        "jsCode": "  // Parseia o JSON da análise estruturada.\n  const resp = $input.first().json;\n  const content = resp.choices?.[0]?.message?.content || '{}';\n  const analise = JSON.parse(content);\n  return [{\n    json: {\n      cliente_oculto_id: $('Processar resposta IA').first().json.cliente_oculto_id,\n      lead_id: $('Processar resposta IA').first().json.lead_id,\n      analise,\n    },\n  }];"
+        "jsCode": "  const resp = $input.first().json;\n  const content = resp.choices?.[0]?.message?.content || '{}';\n  const analise = JSON.parse(content);\n  return [{\n    json: {\n      cliente_oculto_id: $('Processar resposta IA').first().json.cliente_oculto_id,\n      lead_id: $('Processar resposta IA').first().json.lead_id,\n      analise,\n    },\n  }];"
       },
       "id": "c572131d-726c-40a5-85b2-54ad2ab010e7",
       "name": "Parse análise",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3488,
+        3936,
         -80
       ]
     },
@@ -660,7 +730,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [
-        3712,
+        4160,
         -80
       ],
       "credentials": {
@@ -804,25 +874,77 @@
       "main": [
         [
           {
-            "node": "Sortear delay de resposta",
+            "node": "Buffer: push msg",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Sortear delay de resposta": {
+    "Buffer: push msg": {
       "main": [
         [
           {
-            "node": "Esperar (simula pessoa ocupada)",
+            "node": "Buffer: ler lista",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Esperar (simula pessoa ocupada)": {
+    "Buffer: ler lista": {
+      "main": [
+        [
+          {
+            "node": "Buffer: já passou a janela?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buffer: já passou a janela?": {
+      "main": [
+        [
+          {
+            "node": "Buffer: tem msg?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buffer: esperar e re-checar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buffer: esperar e re-checar": {
+      "main": [
+        [
+          {
+            "node": "Buffer: ler lista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buffer: tem msg?": {
+      "main": [
+        [
+          {
+            "node": "Buffer: limpar lista",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Buffer: limpar lista": {
       "main": [
         [
           {
@@ -837,25 +959,7 @@
       "main": [
         [
           {
-            "node": "Sou a última mensagem?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Sou a última mensagem?": {
-      "main": [
-        [
-          {
             "node": "Montar prompt do Carlos",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Mensagem superada",
             "type": "main",
             "index": 0
           }
